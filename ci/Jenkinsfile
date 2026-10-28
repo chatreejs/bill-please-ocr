@@ -24,8 +24,10 @@ pipeline {
             def now = new Date()
             env.BUILD_DATE = now.format("yyyyMMdd")
             env.BUILD_VERSION = "${VERSION}-develop.${BUILD_DATE}.${BUILD_NUMBER}"
+            env.DEPLOY_JOB = 'chatreejs/gitops/bill-please-backend-manifest-dev'
           } else {
             env.BUILD_VERSION = "${VERSION}"
+            env.DEPLOY_JOB = 'chatreejs/gitops/bill-please-backend-manifest-prod'
           }
         }
       }
@@ -96,8 +98,12 @@ pipeline {
       }
     }
 
-    // No deploy stage yet. Roadmap phase 4 adds an OCR_IMAGE_TAG parameter to the
-    // bill-please-mcp-manifest-{dev,prod} gitops jobs.
+    // The manifest repo bill-please-backend also deploys bill-please-mcp, which sets MCP_IMAGE_TAG
+    stage('Deploy to Kubernetes') {
+      steps {
+        build job: "${DEPLOY_JOB}", parameters: [string(name: 'OCR_IMAGE_TAG', value: "${BUILD_VERSION}")]
+      }
+    }
   }
 
   post {
