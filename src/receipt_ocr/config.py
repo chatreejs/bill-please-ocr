@@ -14,6 +14,15 @@ def _int(name: str, fallback: int) -> int:
         return fallback
 
 
+def _bool(name: str, fallback: bool) -> bool:
+    value = os.environ.get(name, "").strip().lower()
+    if value in {"1", "true", "yes", "on"}:
+        return True
+    if value in {"0", "false", "no", "off"}:
+        return False
+    return fallback
+
+
 def _float(name: str, fallback: float) -> float:
     try:
         return float(os.environ.get(name, ""))
@@ -35,6 +44,9 @@ class Config:
     min_confidence: float = 0.5
     device: str = "cpu"
     cpu_threads: int = 2
+    # oneDNN on x86 fails in Paddle 3.3 with "ConvertPirAttribute2RuntimeAttribute not support
+    # [pir::ArrayAttribute<pir::DoubleAttribute>]" on the first predict, so it stays off
+    enable_mkldnn: bool = False
     supported_types: frozenset[str] = field(default=SUPPORTED_IMAGE_TYPES)
 
 
@@ -49,4 +61,5 @@ def load_config() -> Config:
         min_confidence=_float("OCR_MIN_CONFIDENCE", 0.5),
         device=os.environ.get("OCR_DEVICE", "cpu"),
         cpu_threads=_int("OCR_CPU_THREADS", 2),
+        enable_mkldnn=_bool("OCR_ENABLE_MKLDNN", False),
     )

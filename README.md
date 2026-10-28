@@ -68,6 +68,7 @@ PaddleOCR returns one box per text run, so "Pad Thai", "2" and "240.00" come bac
 | `OCR_MIN_CONFIDENCE` | `0.5` | Drops words recognized with a lower score, such as stray marks |
 | `OCR_DEVICE` | `cpu` | |
 | `OCR_CPU_THREADS` | `2` | Set it to the pod's CPU limit |
+| `OCR_ENABLE_MKLDNN` | `false` | oneDNN on x86. Paddle 3.3 fails on the first predict with `ConvertPirAttribute2RuntimeAttribute not support`, so leave it off. |
 
 The service never logs the image or the recognized text, because receipts can hold names and card digits. Each OCR request logs the image size, word and line counts, the mean confidence and the duration.
 

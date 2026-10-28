@@ -41,6 +41,7 @@ class PaddleOcrEngine:
             use_textline_orientation=False,
             device=config.device,
             cpu_threads=config.cpu_threads,
+            enable_mkldnn=config.enable_mkldnn,
         )
         # The Paddle predictor is not safe to call from two threads at once
         self._lock = threading.Lock()
