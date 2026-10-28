@@ -1,5 +1,12 @@
 # Keep the Python version in sync with .tool-versions
-FROM python:3.13.18-slim AS build
+FROM python:3.13.18-slim AS base
+# libgomp1 for Paddle. libgl1 and libglib2.0-0 for opencv-contrib-python, which PaddleX pins (not the headless build).
+# The build stage needs them too, because it imports PaddleOCR to download the models.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends libgomp1 libgl1 libglib2.0-0 \
+  && rm -rf /var/lib/apt/lists/*
+
+FROM base AS build
 COPY --from=ghcr.io/astral-sh/uv:0.13.6 /uv /bin/uv
 WORKDIR /app
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=never
@@ -15,12 +22,8 @@ ARG OCR_REC_MODEL=th_PP-OCRv5_mobile_rec
 ENV PADDLE_PDX_CACHE_HOME=/opt/paddlex OCR_DET_MODEL=${OCR_DET_MODEL} OCR_REC_MODEL=${OCR_REC_MODEL}
 RUN .venv/bin/python -c "from receipt_ocr.config import load_config; from receipt_ocr.engine import PaddleOcrEngine; PaddleOcrEngine(load_config())"
 
-FROM python:3.13.18-slim
-# libgomp1 for Paddle. libgl1 and libglib2.0-0 for opencv-contrib-python, which PaddleX pins (not the headless build).
-RUN apt-get update \
-  && apt-get install -y --no-install-recommends libgomp1 libgl1 libglib2.0-0 \
-  && rm -rf /var/lib/apt/lists/* \
-  && useradd --uid 1000 --create-home --shell /usr/sbin/nologin app
+FROM base
+RUN useradd --uid 1000 --create-home --shell /usr/sbin/nologin app
 WORKDIR /app
 ARG OCR_DET_MODEL=PP-OCRv5_mobile_det
 ARG OCR_REC_MODEL=th_PP-OCRv5_mobile_rec
