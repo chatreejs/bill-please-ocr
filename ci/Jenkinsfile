@@ -1,0 +1,111 @@
+pipeline {
+  agent any
+
+  environment {
+    IMAGE_URL = "chatreejs/bill-please-ocr"
+  }
+
+  stages {
+    stage('Prepare Env') {
+      steps {
+        script {
+          // Version from pyproject.toml, read with grep/sed like the mcp pipeline reads package.json
+          env.VERSION = sh(
+            returnStdout: true,
+            script: '''grep -m1 '^version' pyproject.toml | sed -E 's/version[[:space:]]*=[[:space:]]*"([^"]+)"/\\1/' '''
+          ).trim()
+
+          env.GIT_REF = (env.BRANCH_NAME ?: env.GIT_BRANCH ?: sh(
+            returnStdout: true,
+            script: 'git rev-parse --abbrev-ref HEAD'
+          ).trim()).replaceFirst(/^origin\//, '')
+
+          if (env.GIT_REF == 'develop') {
+            def now = new Date()
+            env.BUILD_DATE = now.format("yyyyMMdd")
+            env.BUILD_VERSION = "${VERSION}-develop.${BUILD_DATE}.${BUILD_NUMBER}"
+          } else {
+            env.BUILD_VERSION = "${VERSION}"
+          }
+        }
+      }
+    }
+
+    stage('Test') {
+      agent {
+        docker {
+          // Keep in sync with .tool-versions
+          image 'python:3.13.18-slim'
+          args '-u root'
+          reuseNode true
+        }
+      }
+      steps {
+        sh 'pip install --quiet uv==0.13.6'
+        sh 'uv sync --frozen'
+        sh 'uv run ruff check .'
+        sh 'uv run ruff format --check .'
+        // Unit tests only. The image build below loads the real models once as a smoke test.
+        sh 'uv run pytest -q'
+      }
+    }
+
+    stage('Build Docker Image') {
+      steps {
+        script {
+          currentBuild.displayName += " version ${BUILD_VERSION}"
+        }
+        // The build downloads the OCR models from Hugging Face and loads them once
+        sh 'docker build -f Dockerfile . -t ${IMAGE_URL}:${BUILD_VERSION}'
+      }
+    }
+
+    stage('Image Vulnerability Scan') {
+      agent {
+        docker {
+          image 'aquasec/trivy:latest'
+          args '-v /var/run/docker.sock:/var/run/docker.sock -v trivy_cache:/.cache --entrypoint="" -u root --privileged'
+        }
+      }
+      steps {
+        sh 'trivy image --format template --template \"@/contrib/html.tpl\" --output report.html --severity HIGH,CRITICAL --no-progress ${IMAGE_URL}:${BUILD_VERSION}'
+
+        publishHTML target : [
+          allowMissing: true,
+          alwaysLinkToLastBuild: false,
+          keepAll: true,
+          reportDir: '.',
+          reportFiles: 'report.html',
+          reportName: 'Trivy Scan Report',
+        ]
+      }
+    }
+
+    stage('Push to registry') {
+      steps {
+        withCredentials([usernamePassword(credentialsId: 'docker-hub-credential', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
+          sh 'echo $PASSWORD | docker login -u $USERNAME --password-stdin'
+          sh 'docker push ${IMAGE_URL}:${BUILD_VERSION}'
+        }
+      }
+    }
+
+    stage('Clear Image') {
+      steps {
+        sh 'docker rmi ${IMAGE_URL}:${BUILD_VERSION}'
+      }
+    }
+
+    // No deploy stage yet. Roadmap phase 4 adds an OCR_IMAGE_TAG parameter to the
+    // bill-please-mcp-manifest-{dev,prod} gitops jobs.
+  }
+
+  post {
+    success {
+      discordSend description: "Duration: ${currentBuild.durationString}", link: env.BUILD_URL, result: currentBuild.currentResult, title: "${env.JOB_NAME} - # ${env.BUILD_VERSION}", footer: "${currentBuild.getBuildCauses()[0].shortDescription}",webhookURL: "https://discord.com/api/webhooks/${env.DISCORD_WEBHOOK_ID}/${env.DISCORD_WEBHOOK_TOKEN}"
+    }
+    failure {
+      discordSend description: "Duration: ${currentBuild.durationString}", link: env.BUILD_URL, result: currentBuild.currentResult, title: "${env.JOB_NAME} - # ${env.BUILD_VERSION}", footer: "${currentBuild.getBuildCauses()[0].shortDescription}",webhookURL: "https://discord.com/api/webhooks/${env.DISCORD_WEBHOOK_ID}/${env.DISCORD_WEBHOOK_TOKEN}"
+    }
+  }
+}

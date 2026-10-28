@@ -1,0 +1,45 @@
+[project]
+name = "bill-please-ocr"
+version = "0.1.0"
+description = "Receipt OCR service for bill-please-mcp (PaddleOCR, Thai + English)"
+authors = [
+    { name = "Chatree.js", email = "36321701+chatreejs@users.noreply.github.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.162.0",
+    "paddleocr==3.7.0",
+    "paddlepaddle==3.3.1",
+    "pi-heif>=1.4.0",
+    "pillow>=13.0.0",
+    "python-multipart>=0.0.32",
+    "uvicorn>=0.54.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.13.6,<0.14.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+# The package keeps its descriptive name; the project is named after the repo
+module-name = "receipt_ocr"
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=9.2.0",
+    "ruff>=0.17.3",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# The paddle tests load the real models; run them with `uv run pytest -m paddle`
+addopts = "-m 'not paddle'"
+markers = ["paddle: runs the real PaddleOCR models (slow)"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
