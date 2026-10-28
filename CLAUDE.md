@@ -51,4 +51,4 @@ Key points:
 
 ## Deployment
 
-`Dockerfile` builds `chatreejs/bill-please-ocr` on `python:3.13.18-slim` and runs it as uid 1000. The Jenkins pipeline in `ci/Jenkinsfile` tests, builds, scans with Trivy and pushes. It has no deploy stage yet; roadmap phase 4 adds an `OCR_IMAGE_TAG` parameter to the gitops jobs. Nobody has run the Docker build or created the Jenkins job yet.
+`Dockerfile` builds `chatreejs/bill-please-ocr` on `python:3.13.18-slim` and runs it as uid 1000. The Jenkins pipeline in `ci/Jenkinsfile` tests, builds, scans with Trivy and pushes. Its last stage triggers the gitops job `chatreejs/gitops/bill-please-backend-manifest-{dev,prod}` with `OCR_IMAGE_TAG`. That manifest repo (`../../gitlab.com/chatreedev-manifest/bill-please-backend`) deploys this service next to bill-please-mcp, and a NetworkPolicy admits only the mcp pods. Nobody has run the Docker build or created the Jenkins job yet.
