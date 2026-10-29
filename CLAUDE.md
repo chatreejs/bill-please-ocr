@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 uv sync                          # creates .venv
 uv run pytest                    # unit tests, no models needed
-uv run pytest -m paddle          # real PaddleOCR models on tests/fixtures/receipt.jpg
+uv run pytest -m paddle          # real PaddleOCR models on tests/fixtures/receipts
 uv run ruff check . && uv run ruff format --check .
 PORT=8000 uv run python -m receipt_ocr
 ```
@@ -33,7 +33,7 @@ src/receipt_ocr/
   image.py      decode_image: Pillow and pi-heif, EXIF rotation, downscale to MAX_IMAGE_SIDE, RGB to BGR
   engine.py     OcrEngine protocol; PaddleOcrEngine imports paddleocr lazily and locks around predict
   lines.py      Word and Line, skew estimate, row grouping, column layout with right-aligned numbers
-tests/          pytest; FakeEngine for the app tests; synthetic fixtures
+tests/          pytest; FakeEngine for the app tests; real receipts in fixtures/receipts for the paddle test
 ```
 
 Key points:
@@ -42,7 +42,7 @@ Key points:
 - **Blocking work.** `decode_image` and `engine.recognize` run in the threadpool, so the probes keep answering during an OCR request. Paddle's predictor is not thread-safe, so the engine holds a lock around it.
 - **Logging.** Never log the image or the recognized text, because receipts can hold names and card digits. Log the image size, the word and line counts, the mean confidence and the duration. `adopt_library_loggers` sends PaddleX and PaddleOCR records through our format, from WARN up.
 - **Models.** The Docker build bakes them into the image under `PADDLE_PDX_CACHE_HOME=/opt/paddlex`. Changing `OCR_DET_MODEL` or `OCR_REC_MODEL` in the image needs a rebuild, because they are build args.
-- **Fixtures.** Headless Chrome renders `tests/fixtures/receipt.jpg` from `receipt.html`, because Pillow on this machine lacks raqm and mangles Thai marks. `make_fixtures.py` has the steps. Keep real receipts out of git.
+- **Fixtures.** The user drops real receipts into `tests/fixtures/receipts` as `<name>.jpg` plus `<name>.json`, the answer of the bill (items with name, optional qty and amount, and total). `test_paddle.py` runs one case per image. The folder is gitignored, so keep real receipts out of git.
 
 ## Conventions
 

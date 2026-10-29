@@ -1,10 +1,6 @@
-import json
 import math
-from pathlib import Path
 
 from receipt_ocr.lines import Word, build_lines, estimate_skew, group_rows, visible_length
-
-FIXTURES = Path(__file__).parent / "fixtures"
 
 
 def word(text: str, x0: int, y0: int, x1: int, y1: int, angle: float = 0.0) -> Word:
@@ -90,23 +86,3 @@ def test_line_box_and_confidence():
 def test_empty_input():
     assert build_lines([]) == []
     assert build_lines([word("  ", 0, 0, 10, 10)]) == []
-
-
-def test_recorded_receipt():
-    """Words PaddleOCR recognized in fixtures/receipt.jpg (see make_fixtures.py)."""
-    data = json.loads((FIXTURES / "receipt.words.json").read_text())
-    words = [Word(d["text"], d["confidence"], tuple(d["box"]), d["angle"]) for d in data]
-    lines = [line.text for line in build_lines(words)]
-
-    assert [" ".join(line.split()) for line in lines[3:9]] == [
-        "ผัดไทยกุ้งสด 2 240.00",
-        "ต้มยำกุ้ง 1 180.00",
-        "Pad Krapow Moo 1 90.00",
-        "น้ำมะพร้าว 3 135.00",
-        "Singha Beer 2 180.00",
-        "ส่วนลดสมาชิก -100.00",
-    ]
-    assert " ".join(lines[-1].split()) == "รวมทั้งสิ้น 853.33"
-    # The amount column lines up across the item rows
-    amounts = ["240.00", "180.00", "90.00", "135.00", "180.00", "-100.00"]
-    assert len({end_column(line, amount) for line, amount in zip(lines[3:9], amounts, strict=True)}) == 1

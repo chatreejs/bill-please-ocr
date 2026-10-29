@@ -4,3 +4,7 @@ __pycache__
 .ruff_cache
 .env
 .DS_Store
+
+# Real receipts hold names and card digits, keep them local
+tests/fixtures/receipts/*
+!tests/fixtures/receipts/.gitkeep

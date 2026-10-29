@@ -10,7 +10,7 @@ OCR service for [bill-please-mcp](https://github.com/chatreejs/bill-please-mcp).
 asdf install                  # python 3.13.18, uv 0.13.6
 uv sync                       # creates .venv
 uv run pytest                 # unit tests, no models needed
-uv run pytest -m paddle       # runs the real models on tests/fixtures/receipt.jpg
+uv run pytest -m paddle       # runs the real models on tests/fixtures/receipts
 uv run ruff check . && uv run ruff format --check .
 PORT=8000 uv run python -m receipt_ocr
 ```
@@ -18,7 +18,7 @@ PORT=8000 uv run python -m receipt_ocr
 The first run downloads the models from Hugging Face into `~/.paddlex/official_models` (about 13 MB). The Docker image already contains them.
 
 ```sh
-curl -F image=@tests/fixtures/receipt.jpg localhost:8000/v1/ocr
+curl -F image=@tests/fixtures/receipts/<name>.jpg localhost:8000/v1/ocr
 ```
 
 ## API
@@ -74,7 +74,7 @@ The service never logs the image or the recognized text, because receipts can ho
 
 ## Fixtures
 
-`tests/fixtures/receipt.jpg` is a synthetic Thai and English receipt, not a real one. `make_fixtures.py` explains how to regenerate it and `receipt.words.json`. Keep real receipts out of the repo.
+Put real receipts in `tests/fixtures/receipts`: an image `<name>.jpg` (or .png, .webp, .heic, .heif) and the answer of the bill in `<name>.json`, as `{"items": [{"name": ..., "qty": ..., "amount": ...}], "total": ...}`. `uv run pytest -m paddle` checks that each item comes back on one line with its name and amount, and that a line holds the total. `.gitignore` keeps the folder out of git, because receipts hold names and card digits.
 
 ## Image
 
