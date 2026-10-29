@@ -74,7 +74,9 @@ The service never logs the image or the recognized text, because receipts can ho
 
 ## Fixtures
 
-Put real receipts in `tests/fixtures/receipts`: an image `<name>.jpg` (or .png, .webp, .heic, .heif) and the answer of the bill in `<name>.json`, as `{"items": [{"name": ..., "qty": ..., "amount": ...}], "total": ...}`. `uv run pytest -m paddle` checks that each item comes back on one line with its name and amount, and that a line holds the total. `.gitignore` keeps the folder out of git, because receipts hold names and card digits.
+Put real receipts in `tests/fixtures/receipts`: an image `<name>.jpg` (or .png, .webp, .heic, .heif) and the answer of the bill in `<name>.json`, as `{"items": [{"name": ..., "qty": ..., "amount": ...}], "total": ...}`. `.gitignore` keeps the folder out of git, because receipts hold names and card digits.
+
+`uv run pytest -m paddle` scores each receipt with `tests/receipts.py`. An item's candidate lines are the ones that hold its amount, and its qty when given. Its score is 1 minus the edit distance from the name to the closest stretch of a candidate line, per character, so a dropped Thai tone mark costs a little. Items pass at 0.8, and some line must hold the total.
 
 ## Image
 

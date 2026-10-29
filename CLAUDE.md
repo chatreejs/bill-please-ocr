@@ -33,7 +33,7 @@ src/receipt_ocr/
   image.py      decode_image: Pillow and pi-heif, EXIF rotation, downscale to MAX_IMAGE_SIDE, RGB to BGR
   engine.py     OcrEngine protocol; PaddleOcrEngine imports paddleocr lazily and locks around predict
   lines.py      Word and Line, skew estimate, row grouping, column layout with right-aligned numbers
-tests/          pytest; FakeEngine for the app tests; real receipts in fixtures/receipts for the paddle test
+tests/          pytest; FakeEngine for the app tests; real receipts in fixtures/receipts for the paddle test, scored by receipts.py
 ```
 
 Key points:
@@ -42,7 +42,7 @@ Key points:
 - **Blocking work.** `decode_image` and `engine.recognize` run in the threadpool, so the probes keep answering during an OCR request. Paddle's predictor is not thread-safe, so the engine holds a lock around it.
 - **Logging.** Never log the image or the recognized text, because receipts can hold names and card digits. Log the image size, the word and line counts, the mean confidence and the duration. `adopt_library_loggers` sends PaddleX and PaddleOCR records through our format, from WARN up.
 - **Models.** The Docker build bakes them into the image under `PADDLE_PDX_CACHE_HOME=/opt/paddlex`. Changing `OCR_DET_MODEL` or `OCR_REC_MODEL` in the image needs a rebuild, because they are build args.
-- **Fixtures.** The user drops real receipts into `tests/fixtures/receipts` as `<name>.jpg` plus `<name>.json`, the answer of the bill (items with name, optional qty and amount, and total). `test_paddle.py` runs one case per image. The folder is gitignored, so keep real receipts out of git.
+- **Fixtures.** The user drops real receipts into `tests/fixtures/receipts` as `<name>.jpg` plus `<name>.json`, the answer of the bill (items with name, optional qty and amount, and total). `test_paddle.py` runs one case per image and scores names by edit distance with `tests/receipts.py` (pass at 0.8). On the first three bills the default settings beat wider boxes (`text_det_unclip_ratio` 2.0 and 2.5), a 2400 px image and `PP-OCRv5_server_det`, so the user keeps the defaults. The folder is gitignored, so keep real receipts out of git.
 
 ## Conventions
 
