@@ -13,7 +13,7 @@ from PIL import Image
 from receipt_ocr.app import create_app
 from receipt_ocr.config import Config
 from receipt_ocr.lines import Word
-from receipt_ocr.log import JsonFormatter, request_id
+from receipt_ocr.log import JsonFormatter, configure_logging, request_id
 
 WORDS = [
     Word("Pad Thai", 0.98, (20, 100, 140, 130)),
@@ -158,3 +158,9 @@ def test_json_log_request_id_and_error():
     assert entry["error"]["message"] == "outer"
     assert entry["error"]["cause"]["type"] == "KeyError"
     assert "Traceback" in entry["error"]["stack"]
+
+
+def test_pillow_stays_quiet_at_debug():
+    configure_logging("DEBUG", io.StringIO())
+    assert not logging.getLogger("PIL.TiffImagePlugin").isEnabledFor(logging.DEBUG)
+    assert logging.getLogger("PIL.TiffImagePlugin").isEnabledFor(logging.WARNING)

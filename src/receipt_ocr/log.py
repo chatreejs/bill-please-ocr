@@ -92,6 +92,8 @@ def configure_logging(level: str, stream=None) -> None:
     logging.getLogger("uvicorn.access").disabled = True
     # Paddle's C++ extension loader warns about a missing compiler cache. We compile nothing.
     warnings.filterwarnings("ignore", message="No ccache found")
+    # Pillow logs every EXIF tag of every photo at DEBUG
+    logging.getLogger("PIL").setLevel(max(logging.WARNING, root.level))
     adopt_library_loggers()
 
 
