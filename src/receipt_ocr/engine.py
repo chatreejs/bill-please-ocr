@@ -46,7 +46,13 @@ class PaddleOcrEngine:
         # The Paddle predictor is not safe to call from two threads at once
         self._lock = threading.Lock()
         log.info(
-            "Loaded OCR models det=%s rec=%s device=%s", config.det_model, config.rec_model, config.device
+            "Loaded OCR models det=%s rec=%s device=%s",
+            config.det_model,
+            config.rec_model,
+            config.device,
+            extra={
+                "fields": {"ocr": {"det": config.det_model, "rec": config.rec_model, "device": config.device}}
+            },
         )
 
     def recognize(self, image: np.ndarray) -> list[Word]:

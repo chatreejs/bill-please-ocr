@@ -1,29 +1,34 @@
-"""Spring Boot style logging, matching bill-please-mcp src/logger.ts.
+"""JSON lines logging, with the same fields as bill-please-mcp src/logger.ts.
 
-  2026-10-11T14:03:12.345+07:00  INFO 4242 --- [bill-please-ocr] [9f2c1a7e] ocr.engine       : Loaded models
+  {"time":"2026-10-30T14:03:12.345Z","level":"info","service":"bill-please-ocr",
+   "logger":"ocr.engine","msg":"Loaded OCR models"}
 
-The bracket after the app name holds the request id, or `main` outside a request.
+Each record is one line; the example wraps only to fit here.
+
+`requestId` is added inside a request. Pass structured values with `extra={"fields": {...}}`,
+and an exception becomes the `error` field.
 """
 
+import json
 import logging
-import os
 import sys
+import traceback
 import warnings
 from contextvars import ContextVar
-from datetime import datetime
+from datetime import UTC, datetime
 
 APP_NAME = "bill-please-ocr"
 LOG_LEVELS = ("TRACE", "DEBUG", "INFO", "WARN", "ERROR", "OFF")
 
-request_id: ContextVar[str] = ContextVar("request_id", default="main")
+request_id: ContextVar[str | None] = ContextVar("request_id", default=None)
 
-# Python names, as they appear in Spring Boot output
+# The level names bill-please-mcp writes
 _LEVEL_NAMES = {
-    logging.DEBUG: "DEBUG",
-    logging.INFO: "INFO",
-    logging.WARNING: "WARN",
-    logging.ERROR: "ERROR",
-    logging.CRITICAL: "ERROR",
+    logging.DEBUG: "debug",
+    logging.INFO: "info",
+    logging.WARNING: "warn",
+    logging.ERROR: "error",
+    logging.CRITICAL: "error",
 }
 _TO_PYTHON = {
     "TRACE": logging.DEBUG,
@@ -40,22 +45,43 @@ def parse_log_level(value: str | None, fallback: str = "INFO") -> str:
     return upper if upper in LOG_LEVELS else fallback
 
 
-class SpringFormatter(logging.Formatter):
+def _serialize_error(error: BaseException) -> dict:
+    serialized = {
+        "type": type(error).__name__,
+        "message": str(error),
+        "stack": "".join(traceback.format_exception(type(error), error, error.__traceback__)).rstrip(),
+    }
+    if error.__cause__ is not None:
+        serialized["cause"] = _serialize_error(error.__cause__)
+    return serialized
+
+
+class JsonFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
-        timestamp = datetime.fromtimestamp(record.created).astimezone()
-        level = _LEVEL_NAMES.get(record.levelno, record.levelname)
-        line = (
-            f"{timestamp.isoformat(timespec='milliseconds')} {level:>5} {os.getpid()} "
-            f"--- [{APP_NAME}] [{request_id.get():>8}] {record.name:<16} : {record.getMessage()}"
-        )
-        if record.exc_info:
-            line += "\n" + self.formatException(record.exc_info)
-        return line
+        entry = {
+            "time": datetime.fromtimestamp(record.created, UTC)
+            .isoformat(timespec="milliseconds")
+            .replace("+00:00", "Z"),
+            "level": _LEVEL_NAMES.get(record.levelno, record.levelname.lower()),
+            "service": APP_NAME,
+            "logger": record.name,
+        }
+        rid = request_id.get()
+        if rid:
+            entry["requestId"] = rid
+        entry["msg"] = record.getMessage()
+        fields = getattr(record, "fields", None)
+        if isinstance(fields, dict):
+            entry.update(fields)
+        if record.exc_info and record.exc_info[1] is not None:
+            entry["error"] = _serialize_error(record.exc_info[1])
+        # default=str keeps the record when a field is not JSON, for example a numpy number
+        return json.dumps(entry, ensure_ascii=False, separators=(",", ":"), default=str)
 
 
 def configure_logging(level: str, stream=None) -> None:
     handler = logging.StreamHandler(stream or sys.stdout)
-    handler.setFormatter(SpringFormatter())
+    handler.setFormatter(JsonFormatter())
     root = logging.getLogger()
     root.handlers = [handler]
     root.setLevel(_TO_PYTHON[parse_log_level(level)])
@@ -70,8 +96,8 @@ def configure_logging(level: str, stream=None) -> None:
 
 
 def adopt_library_loggers() -> None:
-    """PaddleX and PaddleOCR install their own colored stderr handler when imported. Send their
-    records through our format instead, and only from WARN up, because they log every model load at INFO."""
+    """PaddleX and PaddleOCR install their own colored stderr handler when imported. Send their records
+    through our JSON format instead, and only from WARN up, because they log every model load at INFO."""
     root_level = logging.getLogger().level
     for name in ("paddlex", "paddleocr"):
         logger = logging.getLogger(name)

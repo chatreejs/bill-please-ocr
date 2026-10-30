@@ -1,5 +1,8 @@
 import io
+import json
 import logging
+import re
+import sys
 import threading
 import time
 
@@ -10,7 +13,7 @@ from PIL import Image
 from receipt_ocr.app import create_app
 from receipt_ocr.config import Config
 from receipt_ocr.lines import Word
-from receipt_ocr.log import SpringFormatter
+from receipt_ocr.log import JsonFormatter, request_id
 
 WORDS = [
     Word("Pad Thai", 0.98, (20, 100, 140, 130)),
@@ -119,11 +122,39 @@ def test_logs_never_contain_recognized_text(client, caplog):
         with caplog.at_level(logging.DEBUG):
             assert scan(other, jpeg()).status_code == 200
     assert "4111" not in caplog.text
-    assert "words=1 lines=1" in caplog.text
+    record = next(r for r in caplog.records if r.name == "ocr.route")
+    assert record.fields["ocr"]["words"] == 1
+    assert record.fields["ocr"]["lines"] == 1
 
 
-def test_spring_boot_log_format():
+def test_json_log_format():
     record = logging.LogRecord("ocr.route", logging.WARNING, __file__, 1, "hello %s", ("world",), None)
-    line = SpringFormatter().format(record)
-    assert " WARN " in line
-    assert "--- [bill-please-ocr] [    main] ocr.route        : hello world" in line
+    record.fields = {"ocr": {"lines": 3}}
+    line = JsonFormatter().format(record)
+    assert "\n" not in line
+    entry = json.loads(line)
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z", entry.pop("time"))
+    assert entry == {
+        "level": "warn",
+        "service": "bill-please-ocr",
+        "logger": "ocr.route",
+        "msg": "hello world",
+        "ocr": {"lines": 3},
+    }
+
+
+def test_json_log_request_id_and_error():
+    token = request_id.set("abcd1234")
+    try:
+        try:
+            raise ValueError("outer") from KeyError("inner")
+        except ValueError:
+            record = logging.LogRecord("ocr.route", logging.ERROR, __file__, 1, "failed", (), sys.exc_info())
+        entry = json.loads(JsonFormatter().format(record))
+    finally:
+        request_id.reset(token)
+    assert entry["requestId"] == "abcd1234"
+    assert entry["error"]["type"] == "ValueError"
+    assert entry["error"]["message"] == "outer"
+    assert entry["error"]["cause"]["type"] == "KeyError"
+    assert "Traceback" in entry["error"]["stack"]

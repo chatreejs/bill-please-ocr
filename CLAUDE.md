@@ -29,7 +29,7 @@ src/receipt_ocr/
   __main__.py   entry point: load_config, configure_logging, create_app, then uvicorn with one worker
   app.py        create_app(config, load_engine): request id and access log middleware, routes, engine loaded in a background thread
   config.py     environment variables into a frozen Config dataclass; SUPPORTED_IMAGE_TYPES mirrors ../bill-please-mcp/src/schemas/receipt.ts
-  log.py        Spring Boot style format, the same as ../bill-please-mcp/src/logger.ts; request id in a ContextVar
+  log.py        JSON lines with the same fields as ../bill-please-mcp/src/logger.ts; request id in a ContextVar
   image.py      decode_image: Pillow and pi-heif, EXIF rotation, downscale to MAX_IMAGE_SIDE, RGB to BGR
   engine.py     OcrEngine protocol; PaddleOcrEngine imports paddleocr lazily and locks around predict
   lines.py      Word and Line, skew estimate, row grouping, column layout with right-aligned numbers
@@ -41,6 +41,7 @@ Key points:
 - **Dependency injection.** `create_app(config, load_engine)` takes a factory, so tests pass a `FakeEngine` and never import Paddle. `/readyz` returns 200 only after a warm-up inference.
 - **Blocking work.** `decode_image` and `engine.recognize` run in the threadpool, so the probes keep answering during an OCR request. Paddle's predictor is not thread-safe, so the engine holds a lock around it.
 - **Logging.** Never log the image or the recognized text, because receipts can hold names and card digits. Log the image size, the word and line counts, the mean confidence and the duration. `adopt_library_loggers` sends PaddleX and PaddleOCR records through our format, from WARN up.
+- **Log format.** Every record is one JSON object: `time` (UTC), `level` (lowercase), `service`, `logger`, `requestId` (only inside a request) and `msg`. Pass numbers as fields with `extra={"fields": {...}}`. An exception becomes `error: { type, message, stack, cause }`. The access log has `http: { method, path, status, durationMs }`, `clientIp` and `userAgent`, like bill-please-mcp.
 - **Models.** The Docker build bakes them into the image under `PADDLE_PDX_CACHE_HOME=/opt/paddlex`. Changing `OCR_DET_MODEL` or `OCR_REC_MODEL` in the image needs a rebuild, because they are build args.
 - **Fixtures.** The user drops real receipts into `tests/fixtures/receipts` as `<name>.jpg` plus `<name>.json`, the answer of the bill (items with name, optional qty and amount, and total). `test_paddle.py` runs one case per image and scores names by edit distance with `tests/receipts.py` (pass at 0.8). On the first three bills the default settings beat wider boxes (`text_det_unclip_ratio` 2.0 and 2.5), a 2400 px image and `PP-OCRv5_server_det`, so the user keeps the defaults. The folder is gitignored, so keep real receipts out of git.
 

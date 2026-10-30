@@ -1,5 +1,4 @@
 import asyncio
-import json
 import re
 import secrets
 import time
@@ -42,7 +41,8 @@ def create_app(config: Config, load_engine: Callable[[], OcrEngine]) -> FastAPI:
         # The first inference allocates buffers and is several times slower than the next ones
         engine.recognize(np.full((64, 256, 3), 255, dtype=np.uint8))
         state["engine"] = engine
-        log.info("OCR ready in %d ms", round((time.perf_counter() - started) * 1000))
+        elapsed = round((time.perf_counter() - started) * 1000)
+        log.info("OCR ready in %d ms", elapsed, extra={"fields": {"ocr": {"loadMs": elapsed}}})
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
@@ -69,25 +69,32 @@ def create_app(config: Config, load_engine: Callable[[], OcrEngine]) -> FastAPI:
             response.headers["x-request-id"] = rid
             duration = round((time.perf_counter() - started) * 1000)
             user_agent = request.headers.get("user-agent", "")
-            client = request.client.host if request.client else "-"
-            line = (
-                f"{request.method} {request.url.path} {response.status_code} {duration}ms "
-                f"ip={client} ua={_quote(user_agent) if user_agent else '-'}"
-            )
             status = response.status_code
+            line = f"{request.method} {request.url.path} {status} {duration}ms"
+            fields = {
+                "http": {
+                    "method": request.method,
+                    "path": request.url.path,
+                    "status": status,
+                    "durationMs": duration,
+                },
+                **({"clientIp": request.client.host} if request.client else {}),
+                **({"userAgent": user_agent} if user_agent else {}),
+            }
+            extra = {"fields": fields}
             # /readyz answers 503 on purpose while the models load
             probe_ok = status < 400 or (request.url.path == "/readyz" and status == 503)
             if request.url.path in PROBE_PATHS and probe_ok:
                 if PROBE_USER_AGENT.match(user_agent):
-                    access_log.debug(line)
+                    access_log.debug(line, extra=extra)
                 else:
-                    access_log.info(line)
+                    access_log.info(line, extra=extra)
             elif status >= 500:
-                access_log.error(line)
+                access_log.error(line, extra=extra)
             elif status >= 400:
-                access_log.warning(line)
+                access_log.warning(line, extra=extra)
             else:
-                access_log.info(line)
+                access_log.info(line, extra=extra)
             return response
         finally:
             request_id.reset(token)
@@ -126,13 +133,21 @@ def create_app(config: Config, load_engine: Callable[[], OcrEngine]) -> FastAPI:
         mean_confidence = sum(line.confidence for line in lines) / len(lines) if lines else 0.0
         # Never log the image or the recognized text, because receipts can hold names and card digits
         log.info(
-            "OCR %dx%d words=%d lines=%d confidence=%.3f in %d ms",
-            pixels.shape[1],
-            pixels.shape[0],
-            len(words),
+            "OCR complete with %d lines in %d ms",
             len(lines),
-            mean_confidence,
             duration,
+            extra={
+                "fields": {
+                    "ocr": {
+                        "width": pixels.shape[1],
+                        "height": pixels.shape[0],
+                        "words": len(words),
+                        "lines": len(lines),
+                        "meanConfidence": round(mean_confidence, 3),
+                        "durationMs": duration,
+                    }
+                }
+            },
         )
         return {
             "lines": [
@@ -145,8 +160,3 @@ def create_app(config: Config, load_engine: Callable[[], OcrEngine]) -> FastAPI:
         }
 
     return app
-
-
-def _quote(value: str) -> str:
-    """JSON-style quoting so a user agent with spaces stays on one log line."""
-    return json.dumps(value, ensure_ascii=False)
