@@ -48,8 +48,12 @@ Key points:
 ## Conventions
 
 - Code work happens on `develop`. Commits follow Conventional Commits with a lowercase subject.
-- CI is Jenkins only, with no GitHub Actions CI. The user never runs Docker locally.
+- CI is Jenkins only, with no GitHub Actions workflows. The user never runs Docker locally.
 
 ## Deployment
 
-`Dockerfile` builds `chatreejs/bill-please-ocr` on `python:3.13.18-slim` and runs it as uid 1000. The Jenkins pipeline in `ci/Jenkinsfile` tests, builds, scans with Trivy and pushes. Its last stage triggers the gitops job `chatreejs/gitops/bill-please-backend-manifest-{dev,prod}` with `OCR_IMAGE_TAG`. That manifest repo (`../../gitlab.com/chatreedev-manifest/bill-please-backend`) deploys this service next to bill-please-mcp, and a NetworkPolicy admits only the mcp pods. Nobody has run the Docker build or created the Jenkins job yet.
+`Dockerfile` builds `chatreejs/bill-please-ocr` on `python:3.13.18-slim` and runs it as uid 1000. The Jenkins pipeline in `ci/Jenkinsfile` tests, builds, scans with Trivy and pushes. Its last stage triggers the gitops job `chatreejs/gitops/bill-please-backend-manifest-{dev,prod}` with `OCR_IMAGE_TAG`. That manifest repo (`../../gitlab.com/chatreedev-manifest/bill-please-backend`) deploys this service next to bill-please-mcp, and a NetworkPolicy admits only the mcp pods.
+
+- **Dev.** The Argo CD app `bill-please-backend-dev` auto-syncs the manifest repo, so a push to `develop` reaches dev once Jenkins has built the image. Dev runs at `LOG_LEVEL=DEBUG`, and Pillow stays at WARN so its EXIF records don't flood the logs. On the cluster CPU, OCR takes 4 s for a small receipt and about 11 s for a long one. There is no prod Argo CD app yet.
+- **Shutdown.** The pod sleeps 5 s in `preStop` so the Service stops routing to it, then uvicorn finishes in-flight OCR within `terminationGracePeriodSeconds: 30`. The mcp side stops waiting after 20 s.
+- **Static analysis.** The pipeline has no SonarQube stage and the repo has no CodeQL workflow, so nothing scans the Python code. Only Trivy scans the image.
