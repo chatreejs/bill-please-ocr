@@ -48,7 +48,24 @@ pipeline {
         sh 'uv run ruff check .'
         sh 'uv run ruff format --check .'
         // Unit tests only. The image build below loads the real models once as a smoke test.
-        sh 'uv run pytest -q'
+        // coverage.xml is picked up by the Static Code Scan stage.
+        sh 'uv run pytest -q --cov=receipt_ocr --cov-report=xml:coverage.xml'
+      }
+    }
+
+    stage('Static Code Scan') {
+      agent {
+        docker {
+          image 'sonarsource/sonar-scanner-cli:latest'
+          args '-u root --privileged'
+          // Reuse the workspace so the scanner sees coverage.xml from the Test stage
+          reuseNode true
+        }
+      }
+      steps {
+        withSonarQubeEnv('SonarQube Server') {
+          sh "sonar-scanner -Dsonar.projectVersion=${BUILD_VERSION}"
+        }
       }
     }
 
