@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import re
 import secrets
 import time
@@ -13,7 +14,7 @@ from fastapi.responses import JSONResponse
 from receipt_ocr.config import Config
 from receipt_ocr.engine import OcrEngine
 from receipt_ocr.image import InvalidImageError, decode_image
-from receipt_ocr.lines import build_lines
+from receipt_ocr.lines import Line, build_lines
 from receipt_ocr.log import get_logger, request_id
 
 access_log = get_logger("http.access")
@@ -27,6 +28,92 @@ PROBE_PATHS = ("/healthz", "/readyz")
 
 def _error(status: int, message: str) -> JSONResponse:
     return JSONResponse({"error": message}, status_code=status)
+
+
+def _request_id(request: Request) -> str:
+    incoming = request.headers.get("x-request-id", "")
+    return incoming if REQUEST_ID_PATTERN.match(incoming) else secrets.token_hex(4)
+
+
+def _report_load_failure(task: asyncio.Task) -> None:
+    if task.cancelled():
+        return
+    error = task.exception()
+    if error is not None:
+        log.error("OCR engine failed to load", exc_info=error)
+
+
+def _access_level(path: str, status: int, user_agent: str) -> int:
+    # /readyz answers 503 on purpose while the models load
+    probe_ok = status < 400 or (path == "/readyz" and status == 503)
+    if path in PROBE_PATHS and probe_ok:
+        return logging.DEBUG if PROBE_USER_AGENT.match(user_agent) else logging.INFO
+    if status >= 500:
+        return logging.ERROR
+    if status >= 400:
+        return logging.WARNING
+    return logging.INFO
+
+
+def _log_access(request: Request, status: int, duration: int) -> None:
+    user_agent = request.headers.get("user-agent", "")
+    path = request.url.path
+    fields: dict = {
+        "http": {"method": request.method, "path": path, "status": status, "durationMs": duration},
+    }
+    if request.client:
+        fields["clientIp"] = request.client.host
+    if user_agent:
+        fields["userAgent"] = user_agent
+    access_log.log(
+        _access_level(path, status, user_agent),
+        f"{request.method} {path} {status} {duration}ms",
+        extra={"fields": fields},
+    )
+
+
+def _mean_confidence(lines: list[Line]) -> float:
+    return sum(line.confidence for line in lines) / len(lines) if lines else 0.0
+
+
+async def _recognize(engine: OcrEngine, data: bytes, max_image_side: int) -> dict | JSONResponse:
+    started = time.perf_counter()
+    try:
+        pixels = await run_in_threadpool(decode_image, data, max_image_side)
+    except InvalidImageError:
+        return _error(422, "Image could not be decoded")
+    words = await run_in_threadpool(engine.recognize, pixels)
+    lines = build_lines(words)
+    duration = round((time.perf_counter() - started) * 1000)
+
+    mean_confidence = _mean_confidence(lines)
+    # Never log the image or the recognized text, because receipts can hold names and card digits
+    log.info(
+        "OCR complete with %d lines in %d ms",
+        len(lines),
+        duration,
+        extra={
+            "fields": {
+                "ocr": {
+                    "width": pixels.shape[1],
+                    "height": pixels.shape[0],
+                    "words": len(words),
+                    "lines": len(lines),
+                    "meanConfidence": round(mean_confidence, 3),
+                    "durationMs": duration,
+                }
+            }
+        },
+    )
+    return {
+        "lines": [
+            {"text": line.text, "confidence": line.confidence, "box": list(line.box)} for line in lines
+        ],
+        "text": "\n".join(line.text for line in lines),
+        "width": pixels.shape[1],
+        "height": pixels.shape[0],
+        "durationMs": duration,
+    }
 
 
 def create_app(config: Config, load_engine: Callable[[], OcrEngine]) -> FastAPI:
@@ -47,17 +134,14 @@ def create_app(config: Config, load_engine: Callable[[], OcrEngine]) -> FastAPI:
     @asynccontextmanager
     async def lifespan(_: FastAPI):
         task = asyncio.create_task(asyncio.to_thread(load))
-        task.add_done_callback(
-            lambda t: t.exception() and log.error("OCR engine failed to load", exc_info=t.exception())
-        )
+        task.add_done_callback(_report_load_failure)
         yield
 
     app = FastAPI(title="bill-please-ocr", docs_url=None, redoc_url=None, lifespan=lifespan)
 
     @app.middleware("http")
     async def request_logger(request: Request, call_next):
-        incoming = request.headers.get("x-request-id", "")
-        rid = incoming if REQUEST_ID_PATTERN.match(incoming) else secrets.token_hex(4)
+        rid = _request_id(request)
         token = request_id.set(rid)
         started = time.perf_counter()
         try:
@@ -67,34 +151,7 @@ def create_app(config: Config, load_engine: Callable[[], OcrEngine]) -> FastAPI:
                 log.exception("Unhandled error on %s %s", request.method, request.url.path)
                 response = _error(500, "Internal server error")
             response.headers["x-request-id"] = rid
-            duration = round((time.perf_counter() - started) * 1000)
-            user_agent = request.headers.get("user-agent", "")
-            status = response.status_code
-            line = f"{request.method} {request.url.path} {status} {duration}ms"
-            fields = {
-                "http": {
-                    "method": request.method,
-                    "path": request.url.path,
-                    "status": status,
-                    "durationMs": duration,
-                },
-                **({"clientIp": request.client.host} if request.client else {}),
-                **({"userAgent": user_agent} if user_agent else {}),
-            }
-            extra = {"fields": fields}
-            # /readyz answers 503 on purpose while the models load
-            probe_ok = status < 400 or (request.url.path == "/readyz" and status == 503)
-            if request.url.path in PROBE_PATHS and probe_ok:
-                if PROBE_USER_AGENT.match(user_agent):
-                    access_log.debug(line, extra=extra)
-                else:
-                    access_log.info(line, extra=extra)
-            elif status >= 500:
-                access_log.error(line, extra=extra)
-            elif status >= 400:
-                access_log.warning(line, extra=extra)
-            else:
-                access_log.info(line, extra=extra)
+            _log_access(request, response.status_code, round((time.perf_counter() - started) * 1000))
             return response
         finally:
             request_id.reset(token)
@@ -121,42 +178,6 @@ def create_app(config: Config, load_engine: Callable[[], OcrEngine]) -> FastAPI:
         if len(data) > config.max_image_bytes:
             return _error(413, f"Image is larger than {config.max_image_bytes} bytes")
 
-        started = time.perf_counter()
-        try:
-            pixels = await run_in_threadpool(decode_image, data, config.max_image_side)
-        except InvalidImageError:
-            return _error(422, "Image could not be decoded")
-        words = await run_in_threadpool(engine.recognize, pixels)
-        lines = build_lines(words)
-        duration = round((time.perf_counter() - started) * 1000)
-
-        mean_confidence = sum(line.confidence for line in lines) / len(lines) if lines else 0.0
-        # Never log the image or the recognized text, because receipts can hold names and card digits
-        log.info(
-            "OCR complete with %d lines in %d ms",
-            len(lines),
-            duration,
-            extra={
-                "fields": {
-                    "ocr": {
-                        "width": pixels.shape[1],
-                        "height": pixels.shape[0],
-                        "words": len(words),
-                        "lines": len(lines),
-                        "meanConfidence": round(mean_confidence, 3),
-                        "durationMs": duration,
-                    }
-                }
-            },
-        )
-        return {
-            "lines": [
-                {"text": line.text, "confidence": line.confidence, "box": list(line.box)} for line in lines
-            ],
-            "text": "\n".join(line.text for line in lines),
-            "width": pixels.shape[1],
-            "height": pixels.shape[0],
-            "durationMs": duration,
-        }
+        return await _recognize(engine, data, config.max_image_side)
 
     return app

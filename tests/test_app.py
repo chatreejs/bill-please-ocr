@@ -10,7 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
 
-from receipt_ocr.app import create_app
+from receipt_ocr.app import _access_level, create_app
 from receipt_ocr.config import Config
 from receipt_ocr.lines import Word
 from receipt_ocr.log import JsonFormatter, configure_logging, request_id
@@ -164,3 +164,19 @@ def test_pillow_stays_quiet_at_debug():
     configure_logging("DEBUG", io.StringIO())
     assert not logging.getLogger("PIL.TiffImagePlugin").isEnabledFor(logging.DEBUG)
     assert logging.getLogger("PIL.TiffImagePlugin").isEnabledFor(logging.WARNING)
+
+
+@pytest.mark.parametrize(
+    ("path", "status", "user_agent", "level"),
+    [
+        ("/healthz", 200, "kube-probe/1.31", logging.DEBUG),
+        ("/readyz", 503, "kube-probe/1.31", logging.DEBUG),
+        ("/healthz", 200, "curl/8.7.1", logging.INFO),
+        ("/healthz", 500, "kube-probe/1.31", logging.ERROR),
+        ("/v1/ocr", 200, "", logging.INFO),
+        ("/v1/ocr", 413, "", logging.WARNING),
+        ("/v1/ocr", 503, "", logging.ERROR),
+    ],
+)
+def test_access_level(path, status, user_agent, level):
+    assert _access_level(path, status, user_agent) == level
