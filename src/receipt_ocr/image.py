@@ -6,7 +6,8 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 
 pi_heif.register_heif_opener()
 
-# A 1600 px receipt is ~2.5 MP. This rejects decompression bombs long before memory runs out.
+# A 1600 px receipt is about 2.5 megapixels. The limit rejects decompression bombs long before
+# memory runs out.
 Image.MAX_IMAGE_PIXELS = 60_000_000
 
 
@@ -18,7 +19,7 @@ def decode_image(data: bytes, max_side: int) -> np.ndarray:
     """Decode upload bytes into a BGR array, upright and at most `max_side` px on the long side."""
     try:
         with Image.open(io.BytesIO(data)) as opened:
-            # Phone photos are often stored sideways with an EXIF orientation tag
+            # Phones often store photos sideways with an EXIF orientation tag
             image = ImageOps.exif_transpose(opened)
             image = image.convert("RGB")
     except (UnidentifiedImageError, OSError, Image.DecompressionBombError) as error:

@@ -12,7 +12,7 @@ def test_name_similarity_finds_the_name_inside_the_line():
 
 
 def test_name_similarity_charges_each_wrong_mark():
-    # O read as 0: one edit in 17 characters
+    # OCR read the letter O as 0, which is one edit in 17 characters
     assert round(name_similarity("O06.ข้าวไข่ข้นหมู", "1.00 006.ข้าวไข่ข้นหมู 275.00"), 3) == round(1 - 1 / 17, 3)
     assert name_similarity("ขนม", "Pad Thai") == 0.0
 

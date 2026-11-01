@@ -1,6 +1,6 @@
 """Runs the real PaddleOCR models on the receipts in fixtures/receipts and scores the lines
-against their answers (see receipts.py). Slow and needs the models, so it only runs with
-`uv run pytest -m paddle`."""
+against their answers, with the scoring in receipts.py. The test is slow and needs the models, so
+it runs only with `uv run pytest -m paddle`."""
 
 import os
 from pathlib import Path

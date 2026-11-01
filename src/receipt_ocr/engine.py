@@ -27,7 +27,7 @@ class PaddleOcrEngine:
     text-line orientation models stay off, because the EXIF rotation in image.py covers phone photos."""
 
     def __init__(self, config: Config):
-        # Imported here so tests and the app module load without Paddle
+        # Import Paddle here, so the tests and the app module load without it
         from paddleocr import PaddleOCR
 
         adopt_library_loggers()

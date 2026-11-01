@@ -3,9 +3,9 @@
   {"time":"2026-10-30T14:03:12.345Z","level":"info","service":"bill-please-ocr",
    "logger":"ocr.engine","msg":"Loaded OCR models"}
 
-Each record is one line; the example wraps only to fit here.
+Each record is one line. The example wraps only to fit here.
 
-`requestId` is added inside a request. Pass structured values with `extra={"fields": {...}}`,
+Records written inside a request carry `requestId`. Pass structured values with `extra={"fields": {...}}`,
 and an exception becomes the `error` field.
 """
 

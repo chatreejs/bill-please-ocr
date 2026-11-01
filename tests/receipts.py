@@ -21,7 +21,7 @@ from pathlib import Path
 RECEIPTS = Path(__file__).parent / "fixtures" / "receipts"
 IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"}
 NUMBER = re.compile(r"-?\d[\d,]*(?:\.\d+)?")
-# An item passes at this score: about one wrong mark in every five characters
+# An item passes at this score, which allows about one wrong mark in every five characters
 MIN_SIMILARITY = 0.8
 
 

@@ -13,7 +13,7 @@ def end_column(line: str, token: str) -> int:
 
 
 def test_visible_length_skips_thai_marks():
-    # ก ุ ้ ง: the vowel below and the tone mark above take no cell
+    # In ก ุ ้ ง the vowel below and the tone mark above take no cell
     assert visible_length("กุ้ง") == 2
     assert visible_length("ผัดไทยกุ้งสด") == 9
     assert visible_length("Pad Thai") == 8
@@ -36,7 +36,7 @@ def test_separates_close_rows():
 
 
 def test_tilted_photo_keeps_rows_together():
-    # 4 degrees of tilt: the right end of a row sits ~30 px lower than the left end
+    # With 4 degrees of tilt, the right end of a row sits about 30 px lower than the left end
     tilt = math.radians(4)
     words = []
     for row, y in enumerate((100, 160, 220)):
@@ -59,7 +59,7 @@ def test_skew_ignores_short_and_extreme_boxes():
 
 
 def test_right_aligns_numbers():
-    # 10 px per character; both amounts end at x=500
+    # Each character is 10 px wide, and both amounts end at x=500
     lines = build_lines(
         [
             word("Pad Thai", 0, 0, 80, 20),

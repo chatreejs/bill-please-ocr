@@ -35,12 +35,13 @@ class Config:
     port: int = 8000
     log_level: str = "INFO"
     max_image_bytes: int = 5 * 1024 * 1024
-    # The web resizes to <= 1600 px. HEIC originals arrive full size and get scaled down to this.
+    # The web app resizes photos to at most 1600 px. HEIC originals arrive at full size, and the
+    # service scales them down to this.
     max_image_side: int = 1600
     # On the synthetic receipt, mobile detection took 3.2 s and PP-OCRv5_server_det 5.1 s on a Mac CPU
     det_model: str = "PP-OCRv5_mobile_det"
     rec_model: str = "th_PP-OCRv5_mobile_rec"
-    # Words below this recognition score are dropped (stray marks, stains)
+    # The service drops words below this recognition score, such as stray marks and stains
     min_confidence: float = 0.5
     device: str = "cpu"
     cpu_threads: int = 2

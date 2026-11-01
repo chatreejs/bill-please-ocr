@@ -1,6 +1,6 @@
-"""Line reconstruction: turn separate OCR boxes into receipt rows.
+"""Rebuild receipt rows from separate OCR boxes.
 
-OCR returns one box per text run, e.g. "Pad Thai", "2" and "240.00" for one row. The LLM
+OCR returns one box per text run, such as "Pad Thai", "2" and "240.00" for one row. The LLM
 needs them back on one line with the columns lined up:
 
   Pad Thai                 2      240.00
@@ -63,7 +63,7 @@ def estimate_skew(words: list[Word]) -> float:
 
 
 def _rotated_center(word: Word, skew: float) -> tuple[float, float]:
-    """Box centre rotated by -skew, so the rows of a tilted photo become horizontal."""
+    """The box centre rotated back by the skew, so the rows of a tilted photo become horizontal."""
     cx = (word.box[0] + word.box[2]) / 2
     cy = (word.box[1] + word.box[3]) / 2
     cos, sin = math.cos(skew), math.sin(skew)

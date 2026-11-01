@@ -1,6 +1,7 @@
 import os
 
-# Models are baked into the image. Skip the hoster connectivity check PaddleX runs at import.
+# The Docker build bakes the models into the image, so skip the hoster connectivity check
+# that PaddleX runs at import.
 os.environ.setdefault("PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK", "True")
 
 import uvicorn  # noqa: E402
