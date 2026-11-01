@@ -1,0 +1,52 @@
+name: ​🐞 Bug
+description: Report an issue to help us improve the project.
+title: '[BUG] <write a small description here>'
+labels: ['bug', 'goal: fix', 'priority: medium']
+body:
+  - type: textarea
+    attributes:
+      label: Description
+      description: A brief description of the issue or bug you are facing, also include what you tried and what didn't work.
+    validations:
+      required: false
+  - type: textarea
+    attributes:
+      label: Screenshots / logs
+      description: Please add response samples or server logs if applicable (never include real receipts, recognized text or card digits)
+    validations:
+      required: false
+  - type: textarea
+    attributes:
+      label: Any additional information?
+      description: Any additional information or Is there anything we should know about this bug?
+    validations:
+      required: false
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Where are you seeing the problem?
+      multiple: true
+      options:
+        - OCR API (/v1/ocr)
+        - OCR accuracy / line reconstruction
+        - Health probes (/healthz, /readyz)
+        - Docker image / deployment
+        - Other
+  - type: input
+    id: client
+    attributes:
+      label: Client
+      description: Which client did you use? (e.g. bill-please-mcp, curl)
+    validations:
+      required: false
+  - type: checkboxes
+    id: no-duplicate-issues
+    attributes:
+      label: 'Checklist'
+      options:
+        - label: 'I have checked the existing issues'
+          required: true
+        - label: 'I have read the [Contributing Guidelines](https://github.com/chatreejs/bill-please-ocr/blob/main/CONTRIBUTING.md)'
+          required: true
+        - label: 'I am willing to work on this issue (optional)'
+          required: false
