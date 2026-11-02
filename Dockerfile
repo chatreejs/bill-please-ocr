@@ -13,10 +13,11 @@ ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=never
 COPY pyproject.toml uv.lock ./
 COPY shims ./shims
 RUN uv sync --frozen --no-dev --no-install-project
-# Delete files the service never loads. Paddle's C++ headers and OpenVINO libraries go, because we run Paddle
-# Inference. So do the pandas tests and OpenCV's Haar cascades. The warm-up below fails the build if Paddle needs any of them.
+# Delete files the service never loads: Paddle's C++ headers, the pandas tests and OpenCV's Haar cascades.
+# libpaddle.so links libopenvino and its Paddle frontend, so those stay. OpenVINO opens its CPU plugin only when
+# it runs a model itself, and we run Paddle Inference. The warm-up below fails the build if anything here is needed.
 RUN cd .venv/lib/python3.13/site-packages \
-  && rm -rf paddle/include paddle/libs/libopenvino* pandas/tests cv2/data
+  && rm -rf paddle/include paddle/libs/libopenvino_intel_cpu_plugin.so pandas/tests cv2/data
 COPY src ./src
 RUN uv sync --frozen --no-dev
 
