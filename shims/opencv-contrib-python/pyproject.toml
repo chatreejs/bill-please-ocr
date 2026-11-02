@@ -1,0 +1,15 @@
+# Stands in for opencv-contrib-python, which PaddleX pins and checks for by name.
+# It installs the headless build: the same cv2 without Qt, so the image needs no libgl1.
+[project]
+name = "opencv-contrib-python"
+version = "4.10.0.84"
+requires-python = ">=3.13"
+dependencies = ["opencv-contrib-python-headless==4.10.0.84"]
+
+[build-system]
+requires = ["uv_build>=0.13.6,<0.14.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "opencv_contrib_python_shim"
+module-root = ""

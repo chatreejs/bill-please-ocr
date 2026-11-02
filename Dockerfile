@@ -1,9 +1,9 @@
 # Keep the Python version in sync with .tool-versions
 FROM python:3.13.18-slim AS base
-# libgomp1 for Paddle. libgl1 and libglib2.0-0 for opencv-contrib-python, which PaddleX pins (not the headless build).
-# The build stage needs them too, because it imports PaddleOCR to download the models.
+# libgomp1 for Paddle. OpenCV is the headless build (see shims/opencv-contrib-python), so no libgl1.
+# The build stage needs it too, because it imports PaddleOCR to download the models.
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends libgomp1 libgl1 libglib2.0-0 \
+  && apt-get install -y --no-install-recommends libgomp1 \
   && rm -rf /var/lib/apt/lists/*
 
 FROM base AS build
@@ -11,7 +11,12 @@ COPY --from=ghcr.io/astral-sh/uv:0.13.6 /uv /bin/uv
 WORKDIR /app
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=never
 COPY pyproject.toml uv.lock ./
+COPY shims ./shims
 RUN uv sync --frozen --no-dev --no-install-project
+# Delete files we never load: C++ headers, the OpenVINO backend (we run Paddle Inference), test suites
+# and OpenCV's Haar cascades. The warm-up below fails the build if anything here turns out to be needed.
+RUN cd .venv/lib/python3.13/site-packages \
+  && rm -rf paddle/include paddle/libs/libopenvino* pandas/tests cv2/data
 COPY src ./src
 RUN uv sync --frozen --no-dev
 
@@ -35,8 +40,10 @@ ENV PATH=/app/.venv/bin:$PATH \
   OCR_DET_MODEL=${OCR_DET_MODEL} \
   OCR_REC_MODEL=${OCR_REC_MODEL} \
   PORT=8000
-COPY --from=build /app /app
+# Separate layers, largest and least often changed first, so a code change pushes and pulls only src
+COPY --from=build /app/.venv /app/.venv
 COPY --from=build /opt/paddlex /opt/paddlex
+COPY --from=build /app/src /app/src
 USER app
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=60s \
