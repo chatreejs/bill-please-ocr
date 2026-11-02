@@ -1,7 +1,7 @@
 # Keep the Python version in sync with .tool-versions
 FROM python:3.13.18-slim AS base
-# libgomp1 for Paddle. OpenCV is the headless build (see shims/opencv-contrib-python), so no libgl1.
-# The build stage needs it too, because it imports PaddleOCR to download the models.
+# libgomp1 for Paddle. The image needs no libgl1, because shims/opencv-contrib-python installs headless OpenCV.
+# The build stage needs libgomp1 too, because it imports PaddleOCR to download the models.
 RUN apt-get update \
   && apt-get install -y --no-install-recommends libgomp1 \
   && rm -rf /var/lib/apt/lists/*
@@ -13,8 +13,8 @@ ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=never
 COPY pyproject.toml uv.lock ./
 COPY shims ./shims
 RUN uv sync --frozen --no-dev --no-install-project
-# Delete files we never load: C++ headers, the OpenVINO backend (we run Paddle Inference), test suites
-# and OpenCV's Haar cascades. The warm-up below fails the build if anything here turns out to be needed.
+# Delete files the service never loads. Paddle's C++ headers and OpenVINO libraries go, because we run Paddle
+# Inference. So do the pandas tests and OpenCV's Haar cascades. The warm-up below fails the build if Paddle needs any of them.
 RUN cd .venv/lib/python3.13/site-packages \
   && rm -rf paddle/include paddle/libs/libopenvino* pandas/tests cv2/data
 COPY src ./src
@@ -40,7 +40,7 @@ ENV PATH=/app/.venv/bin:$PATH \
   OCR_DET_MODEL=${OCR_DET_MODEL} \
   OCR_REC_MODEL=${OCR_REC_MODEL} \
   PORT=8000
-# Separate layers, largest and least often changed first, so a code change pushes and pulls only src
+# Copy the venv, the models and src as separate layers, so a code change pushes and pulls only the src layer
 COPY --from=build /app/.venv /app/.venv
 COPY --from=build /opt/paddlex /opt/paddlex
 COPY --from=build /app/src /app/src
