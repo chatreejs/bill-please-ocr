@@ -9,7 +9,7 @@ requires-python = ">=3.13"
 dependencies = [
     "fastapi>=0.162.0",
     "numpy>=2.3.5",
-    # onnxruntime-gpu 1.27 and later need CUDA 13 and driver 580. agent04 has driver 570 with CUDA 12.8.
+    # onnxruntime-gpu 1.27 and later need CUDA 13 and driver 580. 1.26 is the last release for CUDA 12.
     # It has Linux and Windows wheels only, so the unit tests on a Mac run without it.
     "onnxruntime-gpu[cuda,cudnn]==1.26.0 ; sys_platform == 'linux'",
     "opencv-python-headless==4.10.0.84",

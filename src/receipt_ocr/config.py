@@ -47,7 +47,7 @@ class Config:
     onnx_model_dir: str = "/opt/onnx"
     # gpu:N runs on CUDA device N. The image build sets cpu for its warm-up, because it has no GPU.
     device: str = "gpu:0"
-    # ONNX Runtime's CUDA arena cap. llm-server shares the 4 GB T400 and leaves about 1.2 GB.
+    # ONNX Runtime's CUDA arena cap, so the service fits beside other pods on a shared GPU
     gpu_mem_limit_mb: int = 768
     # Number of ONNX Runtime threads for the CPU work between the CUDA kernels
     cpu_threads: int = 2

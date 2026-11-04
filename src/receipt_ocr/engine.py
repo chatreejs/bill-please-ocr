@@ -310,7 +310,7 @@ class OnnxOcrEngine:
                 # llm-server shares the card, so cap the arena and grow it only on demand
                 "gpu_mem_limit": config.gpu_mem_limit_mb * 1024 * 1024,
                 "arena_extend_strategy": "kSameAsRequested",
-                # On the T400 with cuDNN 9.27, HEURISTIC and EXHAUSTIVE find no algorithm for some
+                # With cuDNN 9.27 on a Turing GPU, HEURISTIC and EXHAUSTIVE find no algorithm for some
                 # detection convolutions, and DEFAULT runs every size
                 "cudnn_conv_algo_search": "DEFAULT",
             }

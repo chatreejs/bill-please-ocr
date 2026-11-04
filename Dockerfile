@@ -1,4 +1,4 @@
-# Converts PP-OCRv5 to ONNX and runs it on ONNX Runtime with CUDA 12, on the T400 of k3sprod-agent04.
+# Converts PP-OCRv5 to ONNX and runs it on ONNX Runtime with CUDA 12 on an NVIDIA GPU.
 
 # paddle2onnx supports Python up to 3.12, so the conversion runs in its own stage
 FROM python:3.12-slim AS convert

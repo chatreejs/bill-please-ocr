@@ -1,6 +1,6 @@
 # bill-please-ocr
 
-OCR service for [bill-please-mcp](https://github.com/chatreejs/bill-please-mcp). It takes a receipt photo and returns the text as receipt rows, ready for the LLM step. It runs the [PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR) PP-OCRv5 models, `PP-OCRv5_mobile_det` for text detection and `th_PP-OCRv5_mobile_rec` for recognition, converted to ONNX and run on ONNX Runtime with CUDA. The Thai recognition model also reads English letters and digits. It runs only on the GPU, on the NVIDIA T400 of k3sprod-agent04.
+OCR service for [bill-please-mcp](https://github.com/chatreejs/bill-please-mcp). It takes a receipt photo and returns the text as receipt rows, ready for the LLM step. It runs the [PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR) PP-OCRv5 models, `PP-OCRv5_mobile_det` for text detection and `th_PP-OCRv5_mobile_rec` for recognition, converted to ONNX and run on ONNX Runtime with CUDA. The Thai recognition model also reads English letters and digits. It runs only on an NVIDIA GPU.
 
 ## Develop
 
@@ -68,7 +68,7 @@ The detector returns one box per text run, so "Pad Thai", "2" and "240.00" come 
 | `OCR_MIN_CONFIDENCE` | `0.5` | Drops words recognized with a lower score, such as stray marks |
 | `OCR_DEVICE` | `gpu:0` | `gpu:N` runs on CUDA device N, and the service fails to start when CUDA does not load. `cpu` is for the image build's warm-up and for local runs without a GPU. |
 | `OCR_ONNX_MODEL_DIR` | `/opt/onnx` | Holds `<model>/inference.onnx` and `<model>/config.json` for the ONNX engine |
-| `OCR_GPU_MEM_LIMIT_MB` | `768` | ONNX Runtime's CUDA arena cap. llm-server shares the 4 GB T400 on agent04. |
+| `OCR_GPU_MEM_LIMIT_MB` | `768` | ONNX Runtime's CUDA arena cap. Set it so the service fits beside other pods that share the GPU. |
 | `OCR_CPU_THREADS` | `2` | ONNX Runtime threads for the CPU work around the CUDA kernels. Set it to the pod's CPU limit. |
 
 The service never logs the image or the recognized text, because receipts can hold names and card digits. Each OCR request logs the image size, word and line counts, the mean confidence and the duration.
@@ -81,4 +81,4 @@ Put real receipts in `tests/fixtures/receipts`: an image `<name>.jpg` (or .png, 
 
 ## Image
 
-`Dockerfile` builds `chatreejs/bill-please-ocr` on `python:3.13.18-slim`. It runs as uid 1000, and Jenkins builds it with `ci/Jenkinsfile`. A `python:3.12-slim` stage downloads the models from Hugging Face at pinned revisions and converts them with `scripts/convert_onnx.py`. The image runs them with `onnxruntime-gpu` 1.26, the last release for CUDA 12, because agent04's driver 570 has no CUDA 13. The build loads the models once on the CPU, since the build machine has no GPU. `src/receipt_ocr/engine.py` ports the PaddleX 3.7.2 pre- and post-processing step by step, so it reads the same text as PaddleOCR.
+`Dockerfile` builds `chatreejs/bill-please-ocr` on `python:3.13.18-slim`. It runs as uid 1000, and Jenkins builds it with `ci/Jenkinsfile`. A `python:3.12-slim` stage downloads the models from Hugging Face at pinned revisions and converts them with `scripts/convert_onnx.py`. The image runs them with `onnxruntime-gpu` 1.26, the last release for CUDA 12, because CUDA 13 needs NVIDIA driver 580 or later. The build loads the models once on the CPU, since the build machine has no GPU. `src/receipt_ocr/engine.py` ports the PaddleX 3.7.2 pre- and post-processing step by step, so it reads the same text as PaddleOCR.
