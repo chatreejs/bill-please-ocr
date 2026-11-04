@@ -12,6 +12,8 @@ dependencies = [
     # onnxruntime-gpu 1.27 and later need CUDA 13 and driver 580. 1.26 is the last release for CUDA 12.
     # It has Linux and Windows wheels only, so the unit tests on a Mac run without it.
     "onnxruntime-gpu[cuda,cudnn]==1.26.0 ; sys_platform == 'linux'",
+    # cuDNN 9.27 finds no heuristic algorithm for some detection convolutions on a Turing GPU
+    "nvidia-cudnn-cu12==9.26.1.1 ; sys_platform == 'linux'",
     "opencv-python-headless==4.10.0.84",
     "pi-heif>=1.4.0",
     "pillow>=13.0.0",

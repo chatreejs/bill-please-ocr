@@ -52,6 +52,7 @@ source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
     { name = "numpy" },
+    { name = "nvidia-cudnn-cu12", marker = "sys_platform == 'linux'" },
     { name = "onnxruntime-gpu", extra = ["cuda", "cudnn"], marker = "sys_platform == 'linux'" },
     { name = "opencv-python-headless" },
     { name = "pi-heif" },
@@ -73,6 +74,7 @@ dev = [
 requires-dist = [
     { name = "fastapi", specifier = ">=0.162.0" },
     { name = "numpy", specifier = ">=2.3.5" },
+    { name = "nvidia-cudnn-cu12", marker = "sys_platform == 'linux'", specifier = "==9.26.1.1" },
     { name = "onnxruntime-gpu", extras = ["cuda", "cudnn"], marker = "sys_platform == 'linux'", specifier = "==1.26.0" },
     { name = "opencv-python-headless", specifier = "==4.10.0.84" },
     { name = "pi-heif", specifier = ">=1.4.0" },
@@ -377,14 +379,14 @@ wheels = [
 
 [[package]]
 name = "nvidia-cudnn-cu12"
-version = "9.27.0.42"
+version = "9.26.1.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "nvidia-cublas-cu12" },
 ]
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e4/4b/26e6309b205085e9aa8074887e81fa3603da24c51fd75e0dcaaaff0b9e0f/nvidia_cudnn_cu12-9.27.0.42-py3-none-manylinux_2_27_aarch64.whl", hash = "sha256:5bc22243563107ea06aa60f9116ad800063d5f4617cc75bc6670d5db78d9f336", size = 772694764, upload-time = "2026-09-29T23:39:53.164Z" },
-    { url = "https://files.pythonhosted.org/packages/65/e4/c5a205d48ff00ed8b27882bb45d338d8138e976c76385f328a326bbfaeda/nvidia_cudnn_cu12-9.27.0.42-py3-none-manylinux_2_27_x86_64.whl", hash = "sha256:0a4aa3a7d2264256506c6857fc41fc0c499982f78d70195b1cfcc9055c1957cd", size = 766178381, upload-time = "2026-09-29T23:42:52.357Z" },
+    { url = "https://files.pythonhosted.org/packages/02/a7/0b05c9045b1d58a8cdb59c57adb4294494c875dedeb1efdab978f0b7b5ac/nvidia_cudnn_cu12-9.26.1.1-py3-none-manylinux_2_27_aarch64.whl", hash = "sha256:492340bef618f087f4c34756c17b6ba007fe2a93f82151690b3d3176f3ed1bde", size = 776304031, upload-time = "2026-10-07T15:49:06.155Z" },
+    { url = "https://files.pythonhosted.org/packages/54/23/5a8ddf6d00d7f6ef00798a33bf405987610ac29e6b88ee5a67e93da562cb/nvidia_cudnn_cu12-9.26.1.1-py3-none-manylinux_2_27_x86_64.whl", hash = "sha256:aec908bfab4bf4c486704df0f36427ab4e4509d86015edf9019982ada5d8acc0", size = 770488152, upload-time = "2026-10-07T15:53:14.58Z" },
 ]
 
 [[package]]

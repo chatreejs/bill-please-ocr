@@ -310,9 +310,9 @@ class OnnxOcrEngine:
                 # llm-server shares the card, so cap the arena and grow it only on demand
                 "gpu_mem_limit": config.gpu_mem_limit_mb * 1024 * 1024,
                 "arena_extend_strategy": "kSameAsRequested",
-                # With cuDNN 9.27 on a Turing GPU, HEURISTIC and EXHAUSTIVE find no algorithm for some
-                # detection convolutions, and DEFAULT runs every size
-                "cudnn_conv_algo_search": "DEFAULT",
+                # Every receipt has a new input size, and an exhaustive search would run for each one.
+                # DEFAULT runs cuDNN's fallback algorithms, which are about 4 times slower.
+                "cudnn_conv_algo_search": "HEURISTIC",
             }
             providers.insert(0, ("CUDAExecutionProvider", cuda))
 
