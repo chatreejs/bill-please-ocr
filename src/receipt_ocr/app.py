@@ -125,8 +125,10 @@ def create_app(config: Config, load_engine: Callable[[], OcrEngine]) -> FastAPI:
     def load() -> None:
         started = time.perf_counter()
         engine = load_engine()
-        # The first inference allocates buffers and is several times slower than the next ones
-        engine.recognize(np.full((64, 256, 3), 255, dtype=np.uint8))
+        # The first inference allocates buffers and is several times slower than the next ones.
+        # A blank image at the largest size runs detection on the biggest input a request can send.
+        side = config.max_image_side
+        engine.recognize(np.full((side, side, 3), 255, dtype=np.uint8))
         state["engine"] = engine
         elapsed = round((time.perf_counter() - started) * 1000)
         log.info("OCR ready in %d ms", elapsed, extra={"fields": {"ocr": {"loadMs": elapsed}}})

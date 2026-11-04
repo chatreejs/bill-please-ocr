@@ -310,8 +310,9 @@ class OnnxOcrEngine:
                 # llm-server shares the card, so cap the arena and grow it only on demand
                 "gpu_mem_limit": config.gpu_mem_limit_mb * 1024 * 1024,
                 "arena_extend_strategy": "kSameAsRequested",
-                # Every receipt has a new input size, and an exhaustive search would run for each one
-                "cudnn_conv_algo_search": "HEURISTIC",
+                # On the T400 with cuDNN 9.27, HEURISTIC and EXHAUSTIVE find no algorithm for some
+                # detection convolutions, and DEFAULT runs every size
+                "cudnn_conv_algo_search": "DEFAULT",
             }
             providers.insert(0, ("CUDAExecutionProvider", cuda))
 
@@ -320,6 +321,14 @@ class OnnxOcrEngine:
         options.log_severity_level = 3
         self._det = ort.InferenceSession(str(det_dir / "inference.onnx"), options, providers=providers)
         self._rec = ort.InferenceSession(str(rec_dir / "inference.onnx"), options, providers=providers)
+        # Without this, a CUDA error moves the session to the CPU for good and only prints a warning
+        self._det.disable_fallback()
+        self._rec.disable_fallback()
+        run_options = ort.RunOptions()
+        if device_id is not None:
+            # Every receipt has a new input size, and the arena keeps the blocks of each one. Freeing
+            # them after each run keeps a 1600 px square image inside OCR_GPU_MEM_LIMIT_MB.
+            run_options.add_run_config_entry("memory.enable_memory_arena_shrinkage", f"gpu:{device_id}")
         active = self._det.get_providers()
         if device_id is not None and "CUDAExecutionProvider" not in active:
             raise RuntimeError(f"OCR_DEVICE={config.device} but ONNX Runtime has only {active}")
@@ -327,8 +336,8 @@ class OnnxOcrEngine:
         rec_shape = rec_config["PreProcess"]["transform_ops"]
         image_shape = next(op["RecResizeImg"]["image_shape"] for op in rec_shape if "RecResizeImg" in op)
         self._pipeline = OnnxPipeline(
-            self._run(self._det),
-            self._run(self._rec),
+            self._run(self._det, run_options),
+            self._run(self._rec, run_options),
             rec_characters(rec_config),
             rec=RecSettings(image_shape=tuple(image_shape)),
         )
@@ -353,9 +362,9 @@ class OnnxOcrEngine:
         )
 
     @staticmethod
-    def _run(session) -> Run:
+    def _run(session, run_options) -> Run:
         name = session.get_inputs()[0].name
-        return lambda batch: session.run(None, {name: batch})[0]
+        return lambda batch: session.run(None, {name: batch}, run_options)[0]
 
     def recognize(self, image: np.ndarray) -> list[Word]:
         with self._lock:

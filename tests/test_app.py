@@ -28,9 +28,11 @@ class FakeEngine:
     def __init__(self, words=WORDS):
         self.words = words
         self.calls = 0
+        self.shapes = []
 
     def recognize(self, image):
         self.calls += 1
+        self.shapes.append(image.shape)
         return self.words
 
 
@@ -113,6 +115,8 @@ def test_warm_up_runs_before_ready():
     with TestClient(create_app(Config(), lambda: engine)) as client:
         wait_ready(client)
         assert engine.calls == 1
+        # The warm-up runs at the largest size a request can reach
+        assert engine.shapes == [(1600, 1600, 3)]
 
 
 def test_logs_never_contain_recognized_text(client, caplog):
