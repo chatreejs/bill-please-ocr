@@ -44,7 +44,8 @@ pipeline {
       }
       steps {
         sh 'pip install --quiet uv==0.13.6'
-        sh 'uv sync --frozen'
+        // The unit tests never load ONNX Runtime, so skip it and its 2 GB of CUDA wheels
+        sh 'uv sync --frozen --no-install-package nvidia-cublas-cu12 --no-install-package nvidia-cuda-nvrtc-cu12 --no-install-package nvidia-cuda-runtime-cu12 --no-install-package nvidia-cudnn-cu12 --no-install-package nvidia-cufft-cu12 --no-install-package nvidia-curand-cu12 --no-install-package nvidia-nvjitlink-cu12 --no-install-package onnxruntime-gpu'
         sh 'uv run ruff check .'
         sh 'uv run ruff format --check .'
         // Unit tests only. The image build below loads the real models once as a smoke test.
@@ -74,7 +75,7 @@ pipeline {
         script {
           currentBuild.displayName += " version ${BUILD_VERSION}"
         }
-        // The build downloads the OCR models from Hugging Face and loads them once
+        // The build downloads the OCR models from Hugging Face, converts them to ONNX and loads them once
         sh 'docker build -f Dockerfile . -t ${IMAGE_URL}:${BUILD_VERSION}'
       }
     }

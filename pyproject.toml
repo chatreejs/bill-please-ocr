@@ -1,19 +1,22 @@
 [project]
 name = "bill-please-ocr"
 version = "0.1.0"
-description = "Receipt OCR service for bill-please-mcp (PaddleOCR, Thai + English)"
+description = "Receipt OCR service for bill-please-mcp (PP-OCRv5 on ONNX Runtime GPU, Thai + English)"
 authors = [
     { name = "Chatree.js", email = "36321701+chatreejs@users.noreply.github.com" }
 ]
 requires-python = ">=3.13"
 dependencies = [
     "fastapi>=0.162.0",
-    # shims/opencv-contrib-python installs opencv-contrib-python-headless under this name
-    "opencv-contrib-python==4.10.0.84",
-    "paddleocr==3.7.0",
-    "paddlepaddle==3.3.1",
+    "numpy>=2.3.5",
+    # onnxruntime-gpu 1.27 and later need CUDA 13 and driver 580. agent04 has driver 570 with CUDA 12.8.
+    # It has Linux and Windows wheels only, so the unit tests on a Mac run without it.
+    "onnxruntime-gpu[cuda,cudnn]==1.26.0 ; sys_platform == 'linux'",
+    "opencv-python-headless==4.10.0.84",
     "pi-heif>=1.4.0",
     "pillow>=13.0.0",
+    # Expands the text boxes, as in PaddleX
+    "pyclipper>=1.4.0",
     "python-multipart>=0.0.32",
     "uvicorn>=0.54.0",
 ]
@@ -21,9 +24,6 @@ dependencies = [
 [build-system]
 requires = ["uv_build>=0.13.6,<0.14.0"]
 build-backend = "uv_build"
-
-[tool.uv.sources]
-opencv-contrib-python = { path = "shims/opencv-contrib-python" }
 
 [tool.uv.build-backend]
 # The package keeps its descriptive name; the project is named after the repo
@@ -39,9 +39,9 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-# The paddle tests load the real models; run them with `uv run pytest -m paddle`
-addopts = "-m 'not paddle'"
-markers = ["paddle: runs the real PaddleOCR models (slow)"]
+# The models tests load the converted ONNX models. Run them with `uv run pytest -m models`.
+addopts = "-m 'not models'"
+markers = ["models: runs the real ONNX models on tests/fixtures/receipts (slow)"]
 
 [tool.ruff]
 line-length = 110

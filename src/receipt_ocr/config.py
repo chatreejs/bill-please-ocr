@@ -38,16 +38,19 @@ class Config:
     # The web app resizes photos to at most 1600 px. HEIC originals arrive at full size, and the
     # service scales them down to this.
     max_image_side: int = 1600
-    # On the synthetic receipt, mobile detection took 3.2 s and PP-OCRv5_server_det 5.1 s on a Mac CPU
+    # On the first three bills the defaults beat wider boxes, a 2400 px image and PP-OCRv5_server_det
     det_model: str = "PP-OCRv5_mobile_det"
     rec_model: str = "th_PP-OCRv5_mobile_rec"
     # The service drops words below this recognition score, such as stray marks and stains
     min_confidence: float = 0.5
-    device: str = "cpu"
+    # The Docker build converts the models to ONNX here
+    onnx_model_dir: str = "/opt/onnx"
+    # gpu:N runs on CUDA device N. The image build sets cpu for its warm-up, because it has no GPU.
+    device: str = "gpu:0"
+    # ONNX Runtime's CUDA arena cap. llm-server shares the 4 GB T400 and leaves about 1.2 GB.
+    gpu_mem_limit_mb: int = 768
+    # Number of ONNX Runtime threads for the CPU work between the CUDA kernels
     cpu_threads: int = 2
-    # oneDNN on x86 fails in Paddle 3.3 with "ConvertPirAttribute2RuntimeAttribute not support
-    # [pir::ArrayAttribute<pir::DoubleAttribute>]" on the first predict, so it stays off
-    enable_mkldnn: bool = False
     supported_types: frozenset[str] = field(default=SUPPORTED_IMAGE_TYPES)
 
 
@@ -60,7 +63,8 @@ def load_config() -> Config:
         det_model=os.environ.get("OCR_DET_MODEL", "PP-OCRv5_mobile_det"),
         rec_model=os.environ.get("OCR_REC_MODEL", "th_PP-OCRv5_mobile_rec"),
         min_confidence=_float("OCR_MIN_CONFIDENCE", 0.5),
-        device=os.environ.get("OCR_DEVICE", "cpu"),
+        onnx_model_dir=os.environ.get("OCR_ONNX_MODEL_DIR", "/opt/onnx"),
+        device=os.environ.get("OCR_DEVICE", "gpu:0"),
+        gpu_mem_limit_mb=_int("OCR_GPU_MEM_LIMIT_MB", 768),
         cpu_threads=_int("OCR_CPU_THREADS", 2),
-        enable_mkldnn=_bool("OCR_ENABLE_MKLDNN", False),
     )

@@ -11,9 +11,9 @@ The security policy covers the codebase, Docker image and documentation of this 
 - The OCR endpoint (`POST /v1/ocr`) and the probes (`GET /healthz`, `GET /readyz`).
 - Handling of uploaded receipt images (type and size limits, decoding with Pillow and pi-heif, EXIF rotation and downscaling).
 - Logging, which must never contain receipt images or recognized text.
-- The Docker image, including the PaddleOCR models baked into it.
+- The Docker image, including the ONNX models baked into it.
 
-Vulnerabilities in the receipt scan API or the MCP server should be reported according to the [Bill Please MCP security policy](https://github.com/chatreejs/bill-please-mcp/blob/main/SECURITY.md), and vulnerabilities in the Bill Please web app according to the [Bill Please security policy](https://github.com/chatreejs/bill-please/blob/main/SECURITY.md). Vulnerabilities in third-party dependencies (PaddleOCR, PaddlePaddle, FastAPI, Pillow, pi-heif) should be reported to their maintainers; let us know too if this project is affected.
+Vulnerabilities in the receipt scan API or the MCP server should be reported according to the [Bill Please MCP security policy](https://github.com/chatreejs/bill-please-mcp/blob/main/SECURITY.md), and vulnerabilities in the Bill Please web app according to the [Bill Please security policy](https://github.com/chatreejs/bill-please/blob/main/SECURITY.md). Vulnerabilities in third-party dependencies (ONNX Runtime, OpenCV, FastAPI, Pillow, pi-heif) should be reported to their maintainers; let us know too if this project is affected.
 
 ## Supported Versions
 
@@ -44,7 +44,7 @@ Bill Please OCR will aim to resolve critical vulnerabilities within 30 days and 
 If you host your own instance:
 
 - The service has **no authentication** and is meant to be called only by bill-please-mcp. Do not expose it publicly; restrict it to the mcp pods, for example with a Kubernetes NetworkPolicy.
-- Keep `MAX_IMAGE_BYTES` and `MAX_IMAGE_SIDE` low. OCR is CPU bound and runs one request at a time, so large or many images can starve the service.
+- Keep `MAX_IMAGE_BYTES` and `MAX_IMAGE_SIDE` low. OCR runs one request at a time on a shared GPU, so large or many images can starve the service.
 - Run the container as a non-root user, as the published image does (uid 1000).
 - Keep `LOG_LEVEL` at `INFO` or above in production, and never add logging of images or recognized text: receipts can hold names and card digits.
 

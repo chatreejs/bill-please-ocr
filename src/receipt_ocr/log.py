@@ -13,7 +13,6 @@ import json
 import logging
 import sys
 import traceback
-import warnings
 from contextvars import ContextVar
 from datetime import UTC, datetime
 
@@ -90,22 +89,8 @@ def configure_logging(level: str, stream=None) -> None:
         logging.getLogger(name).propagate = True
     # Our middleware writes the access log
     logging.getLogger("uvicorn.access").disabled = True
-    # Paddle's C++ extension loader warns about a missing compiler cache. We compile nothing.
-    warnings.filterwarnings("ignore", message="No ccache found")
     # Pillow logs every EXIF tag of every photo at DEBUG
     logging.getLogger("PIL").setLevel(max(logging.WARNING, root.level))
-    adopt_library_loggers()
-
-
-def adopt_library_loggers() -> None:
-    """PaddleX and PaddleOCR install their own colored stderr handler when imported. Send their records
-    through our JSON format instead, and only from WARN up, because they log every model load at INFO."""
-    root_level = logging.getLogger().level
-    for name in ("paddlex", "paddleocr"):
-        logger = logging.getLogger(name)
-        logger.handlers = []
-        logger.propagate = True
-        logger.setLevel(max(logging.WARNING, root_level))
 
 
 def get_logger(name: str) -> logging.Logger:

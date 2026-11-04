@@ -1,49 +1,56 @@
-# Keep the Python version in sync with .tool-versions
-FROM python:3.13.18-slim AS base
-# libgomp1 for Paddle. The image needs no libgl1, because shims/opencv-contrib-python installs headless OpenCV.
-# The build stage needs libgomp1 too, because it imports PaddleOCR to download the models.
+# Converts PP-OCRv5 to ONNX and runs it on ONNX Runtime with CUDA 12, on the T400 of k3sprod-agent04.
+
+# paddle2onnx supports Python up to 3.12, so the conversion runs in its own stage
+FROM python:3.12-slim AS convert
+# paddle2onnx loads Paddle to read the models, and Paddle needs libgomp1
 RUN apt-get update \
   && apt-get install -y --no-install-recommends libgomp1 \
   && rm -rf /var/lib/apt/lists/*
+RUN pip install --no-cache-dir paddlepaddle==3.0.0 paddle2onnx==2.1.0 "pyyaml>=6.0" setuptools packaging
+# Pin the Hugging Face revisions, so a rebuild converts the same weights
+ARG OCR_DET_MODEL=PP-OCRv5_mobile_det
+ARG OCR_DET_REVISION=0d63e78e2b680928f6b1747d76a08db6e645efb7
+ARG OCR_REC_MODEL=th_PP-OCRv5_mobile_rec
+ARG OCR_REC_REVISION=9e25080455925d3943f5db885fddc79db6a07ca3
+COPY scripts/convert_onnx.py /convert_onnx.py
+RUN python /convert_onnx.py /opt/onnx \
+  "${OCR_DET_MODEL}=${OCR_DET_REVISION}" "${OCR_REC_MODEL}=${OCR_REC_REVISION}"
 
-FROM base AS build
+FROM python:3.13.18-slim AS build
 COPY --from=ghcr.io/astral-sh/uv:0.13.6 /uv /bin/uv
 WORKDIR /app
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=never
 COPY pyproject.toml uv.lock ./
-COPY shims ./shims
+# Installs onnxruntime-gpu with the CUDA runtime, cuBLAS, cuFFT and cuDNN wheels
 RUN uv sync --frozen --no-dev --no-install-project
-# Delete files the service never loads: Paddle's C++ headers, the pandas tests and OpenCV's Haar cascades.
-# libpaddle.so links libopenvino and its Paddle frontend, so those stay. OpenVINO opens its CPU plugin only when
-# it runs a model itself, and we run Paddle Inference. The warm-up below fails the build if anything here is needed.
-RUN cd .venv/lib/python3.13/site-packages \
-  && rm -rf paddle/include paddle/libs/libopenvino_intel_cpu_plugin.so pandas/tests cv2/data
+# Deletes OpenCV's Haar cascades, which the service never loads
+RUN rm -rf .venv/lib/python3.13/site-packages/cv2/data
 COPY src ./src
 RUN uv sync --frozen --no-dev
+COPY --from=convert /opt/onnx /opt/onnx
 
-# Bake the models into the image so pods start without internet access.
-# Loading the engine downloads them from Hugging Face into PADDLE_PDX_CACHE_HOME. The warm-up predict
-# fails the build, not the pod, when the Paddle runtime cannot run the models on this CPU.
+# The build has no GPU, so the warm-up runs the converted models on ONNX Runtime's CPU provider.
+# If a converted model does not run, the build fails.
 ARG OCR_DET_MODEL=PP-OCRv5_mobile_det
 ARG OCR_REC_MODEL=th_PP-OCRv5_mobile_rec
-ENV PADDLE_PDX_CACHE_HOME=/opt/paddlex OCR_DET_MODEL=${OCR_DET_MODEL} OCR_REC_MODEL=${OCR_REC_MODEL}
-RUN .venv/bin/python -c "from receipt_ocr.config import load_config; from receipt_ocr.engine import PaddleOcrEngine; import numpy as np; PaddleOcrEngine(load_config()).recognize(np.full((64, 256, 3), 255, dtype=np.uint8))"
+RUN OCR_DEVICE=cpu OCR_ONNX_MODEL_DIR=/opt/onnx \
+  OCR_DET_MODEL=${OCR_DET_MODEL} OCR_REC_MODEL=${OCR_REC_MODEL} \
+  .venv/bin/python -c "from receipt_ocr.config import load_config; from receipt_ocr.engine import OnnxOcrEngine; import numpy as np; OnnxOcrEngine(load_config()).recognize(np.full((64, 256, 3), 255, dtype=np.uint8))"
 
-FROM base
+FROM python:3.13.18-slim
 RUN useradd --uid 1000 --create-home --shell /usr/sbin/nologin app
 WORKDIR /app
 ARG OCR_DET_MODEL=PP-OCRv5_mobile_det
 ARG OCR_REC_MODEL=th_PP-OCRv5_mobile_rec
 ENV PATH=/app/.venv/bin:$PATH \
   PYTHONUNBUFFERED=1 \
-  PADDLE_PDX_CACHE_HOME=/opt/paddlex \
-  PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK=True \
+  OCR_ONNX_MODEL_DIR=/opt/onnx \
+  OCR_DEVICE=gpu:0 \
   OCR_DET_MODEL=${OCR_DET_MODEL} \
   OCR_REC_MODEL=${OCR_REC_MODEL} \
   PORT=8000
-# Copy the venv, the models and src as separate layers, so a code change pushes and pulls only the src layer
 COPY --from=build /app/.venv /app/.venv
-COPY --from=build /opt/paddlex /opt/paddlex
+COPY --from=build /opt/onnx /opt/onnx
 COPY --from=build /app/src /app/src
 USER app
 EXPOSE 8000

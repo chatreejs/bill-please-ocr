@@ -1,14 +1,8 @@
-import os
+import uvicorn
 
-# The Docker build bakes the models into the image, so skip the hoster connectivity check
-# that PaddleX runs at import.
-os.environ.setdefault("PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK", "True")
-
-import uvicorn  # noqa: E402
-
-from receipt_ocr.app import create_app  # noqa: E402
-from receipt_ocr.config import load_config  # noqa: E402
-from receipt_ocr.log import configure_logging, get_logger  # noqa: E402
+from receipt_ocr.app import create_app
+from receipt_ocr.config import load_config
+from receipt_ocr.log import configure_logging, get_logger
 
 
 def main() -> None:
@@ -17,13 +11,13 @@ def main() -> None:
     log = get_logger("main")
 
     def load_engine():
-        from receipt_ocr.engine import PaddleOcrEngine
+        from receipt_ocr.engine import OnnxOcrEngine
 
-        return PaddleOcrEngine(config)
+        return OnnxOcrEngine(config)
 
     app = create_app(config, load_engine)
     log.info("Starting bill-please-ocr on port %d", config.port)
-    # One worker, because each worker holds its own copy of the models and the pod gets fixed CPUs.
+    # One worker, because each worker holds its own copy of the models in VRAM.
     # uvicorn finishes in-flight requests on SIGTERM.
     uvicorn.run(app, host="0.0.0.0", port=config.port, log_config=None, access_log=False)
 

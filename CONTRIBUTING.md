@@ -13,7 +13,7 @@ Thank you for taking the time to contribute to our project. Please take a moment
 - Basic familiarity with Git and GitHub: If you are also new to these tools, visit [GitHub for complete beginners](https://developer.mozilla.org/en-US/docs/MDN/Contribute/GitHub_beginners) for a comprehensive introduction to them.
 
 - Make sure you have Python and [uv](https://docs.astral.sh/uv/) installed. The versions are pinned in `.tool-versions`, so if you use [asdf](https://asdf-vm.com) just run `asdf install`.
-- (Optional) [Docker](https://www.docker.com) if you want to test the container build. The build downloads the PaddleOCR models and bakes them into the image.
+- (Optional) [Docker](https://www.docker.com) if you want to test the container build. The build downloads the PP-OCRv5 models, converts them to ONNX and bakes them into the image.
 
 ---
 
@@ -53,7 +53,7 @@ Follow these steps to set up Bill Please OCR on your local machine
    git checkout -b <your_branch_name>
    ```
 
-6. Run the server on localhost (http://localhost:8000). The first start downloads the PaddleOCR models, and `/readyz` returns 200 once the warm-up inference is done.
+6. Run the server on localhost (http://localhost:8000). It needs Linux and the converted models in `OCR_ONNX_MODEL_DIR` (see the README), and `OCR_DEVICE=cpu` without an NVIDIA GPU. `/readyz` returns 200 once the warm-up inference is done.
 
    ```sh
    PORT=8000 uv run python -m receipt_ocr
@@ -69,7 +69,7 @@ Follow these steps to set up Bill Please OCR on your local machine
    If you changed the OCR settings or the line reconstruction, also run the tests with the real models on your own receipts in `tests/fixtures/receipts` (see [Receipt fixtures](#receipt-fixtures-))
 
    ```sh
-   uv run pytest -m paddle
+   uv run pytest -m models
    ```
 
 8. Stage your changes
@@ -100,15 +100,15 @@ Follow these steps to set up Bill Please OCR on your local machine
 
 - **Keep the `/v1/ocr` response stable.** [bill-please-mcp](https://github.com/chatreejs/bill-please-mcp) calls this service over HTTP. If the response has to change, change this service first and the mcp client second.
 - **Keep the supported image types in sync.** `SUPPORTED_IMAGE_TYPES` in `src/receipt_ocr/config.py` mirrors `src/schemas/receipt.ts` in bill-please-mcp.
-- **Tests never load Paddle.** `create_app(config, load_engine)` takes an engine factory, so the app tests pass a `FakeEngine`. Only tests marked `paddle` use the real models. Add tests for any new behavior in `tests/`.
-- **Keep blocking work off the event loop.** Image decoding and OCR run in the threadpool so the probes keep answering, and the engine holds a lock around Paddle's predictor because it is not thread-safe.
+- **Tests never load the models.** `create_app(config, load_engine)` takes an engine factory, so the app tests pass a `FakeEngine`. Only tests marked `models` use the real models. Add tests for any new behavior in `tests/`.
+- **Keep blocking work off the event loop.** Image decoding and OCR run in the threadpool so the probes keep answering, and the engine holds a lock around the ONNX Runtime sessions so one request at a time uses the GPU.
 - **Never log the image or the recognized text.** Receipts can hold names and card digits. Log sizes, counts, confidence and durations as fields with `extra={"fields": {...}}`.
 - **New settings** are environment variables read into the `Config` dataclass in `src/receipt_ocr/config.py`. Document them in the configuration table of `README.md`.
 - **Never commit secrets** (`.env`) or real receipts.
 
 ### Receipt fixtures 🧾
 
-The `paddle` tests read real receipts from `tests/fixtures/receipts`, as `<name>.jpg` plus `<name>.json` with the answer of the bill (items with name, optional qty and amount, and total). Each image is one test case, and item names pass at an edit distance score of 0.8. The folder is gitignored: **never commit real receipts or attach them to issues or pull requests.**
+The `models` tests read real receipts from `tests/fixtures/receipts`, as `<name>.jpg` plus `<name>.json` with the answer of the bill (items with name, optional qty and amount, and total). Each image is one test case, and item names pass at an edit distance score of 0.8. The folder is gitignored: **never commit real receipts or attach them to issues or pull requests.**
 
 ---
 
@@ -153,7 +153,7 @@ We follow the [Conventional Commits](https://www.conventionalcommits.org) format
 - `fix(image): rotate heic images by their exif orientation`
 - `docs: update docker instructions`
 - `test: score receipt names by edit distance`
-- `chore(deps): update paddleocr`
+- `chore(deps): update onnxruntime-gpu`
 - `fix: reject empty uploads (#456)`
 
 #### ❌ Examples of Invalid Commit Messages

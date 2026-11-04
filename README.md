@@ -1,6 +1,6 @@
 # bill-please-ocr
 
-OCR service for [bill-please-mcp](https://github.com/chatreejs/bill-please-mcp). It takes a receipt photo and returns the text as receipt rows, ready for the LLM step. It uses [PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR) 3.x with `PP-OCRv5_mobile_det` for text detection and `th_PP-OCRv5_mobile_rec` for recognition. The Thai recognition model also reads English letters and digits. It runs on the CPU.
+OCR service for [bill-please-mcp](https://github.com/chatreejs/bill-please-mcp). It takes a receipt photo and returns the text as receipt rows, ready for the LLM step. It runs the [PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR) PP-OCRv5 models, `PP-OCRv5_mobile_det` for text detection and `th_PP-OCRv5_mobile_rec` for recognition, converted to ONNX and run on ONNX Runtime with CUDA. The Thai recognition model also reads English letters and digits. It runs only on the GPU, on the NVIDIA T400 of k3sprod-agent04.
 
 ## Develop
 
@@ -10,12 +10,12 @@ OCR service for [bill-please-mcp](https://github.com/chatreejs/bill-please-mcp).
 asdf install                  # python 3.13.18, uv 0.13.6
 uv sync                       # creates .venv
 uv run pytest                 # unit tests, no models needed
-uv run pytest -m paddle       # runs the real models on tests/fixtures/receipts
+uv run pytest -m models       # runs the real models on tests/fixtures/receipts
 uv run ruff check . && uv run ruff format --check .
 PORT=8000 uv run python -m receipt_ocr
 ```
 
-The first run downloads the models from Hugging Face into `~/.paddlex/official_models` (about 13 MB). The Docker image already contains them.
+The service runs on Linux only, because `onnxruntime-gpu` has no macOS wheels; `uv sync` on a Mac installs everything else, which is enough for the unit tests. It loads `<model>/inference.onnx` and `<model>/config.json` from `OCR_ONNX_MODEL_DIR`, which `scripts/convert_onnx.py` writes (paddle2onnx needs Python 3.12 or older). Set `OCR_DEVICE=cpu` on a machine without an NVIDIA GPU. The Docker image already contains the models.
 
 ```sh
 curl -F image=@tests/fixtures/receipts/<name>.jpg localhost:8000/v1/ocr
@@ -49,7 +49,7 @@ Errors return `{"error": "..."}` with status 413 (too large), 415 (unsupported t
 
 ## Line reconstruction
 
-PaddleOCR returns one box per text run, so "Pad Thai", "2" and "240.00" come back as three boxes. `lines.py` rebuilds the rows in three steps.
+The detector returns one box per text run, so "Pad Thai", "2" and "240.00" come back as three boxes. `lines.py` rebuilds the rows in three steps.
 
 1. It estimates the photo's tilt from the top edges of the wide boxes and rotates the box centres back.
 2. It groups boxes whose vertical centres are within half a text height of each other.
@@ -66,9 +66,10 @@ PaddleOCR returns one box per text run, so "Pad Thai", "2" and "240.00" come bac
 | `OCR_DET_MODEL` | `PP-OCRv5_mobile_det` | `PP-OCRv5_server_det` (84 MB) took 5.1 s instead of 3.2 s on the synthetic receipt, with no better result. In the Docker image it is a build arg, because the build bakes the models in. |
 | `OCR_REC_MODEL` | `th_PP-OCRv5_mobile_rec` | A build arg in the Docker image, like `OCR_DET_MODEL` |
 | `OCR_MIN_CONFIDENCE` | `0.5` | Drops words recognized with a lower score, such as stray marks |
-| `OCR_DEVICE` | `cpu` | |
-| `OCR_CPU_THREADS` | `2` | Set it to the pod's CPU limit |
-| `OCR_ENABLE_MKLDNN` | `false` | oneDNN on x86. Paddle 3.3 fails on the first predict with `ConvertPirAttribute2RuntimeAttribute not support`, so leave it off. |
+| `OCR_DEVICE` | `gpu:0` | `gpu:N` runs on CUDA device N, and the service fails to start when CUDA does not load. `cpu` is for the image build's warm-up and for local runs without a GPU. |
+| `OCR_ONNX_MODEL_DIR` | `/opt/onnx` | Holds `<model>/inference.onnx` and `<model>/config.json` for the ONNX engine |
+| `OCR_GPU_MEM_LIMIT_MB` | `768` | ONNX Runtime's CUDA arena cap. llm-server shares the 4 GB T400 on agent04. |
+| `OCR_CPU_THREADS` | `2` | ONNX Runtime threads for the CPU work around the CUDA kernels. Set it to the pod's CPU limit. |
 
 The service never logs the image or the recognized text, because receipts can hold names and card digits. Each OCR request logs the image size, word and line counts, the mean confidence and the duration.
 
@@ -76,8 +77,8 @@ The service never logs the image or the recognized text, because receipts can ho
 
 Put real receipts in `tests/fixtures/receipts`: an image `<name>.jpg` (or .png, .webp, .heic, .heif) and the answer of the bill in `<name>.json`, as `{"items": [{"name": ..., "qty": ..., "amount": ...}], "total": ...}`. `.gitignore` keeps the folder out of git, because receipts hold names and card digits.
 
-`uv run pytest -m paddle` scores each receipt with `tests/receipts.py`. An item's candidate lines are the ones that hold its amount, and its qty when given. Its score is 1 minus the edit distance from the name to the closest stretch of a candidate line, per character, so a dropped Thai tone mark costs a little. Items pass at 0.8, and some line must hold the total.
+`uv run pytest -m models` scores each receipt with `tests/receipts.py`. An item's candidate lines are the ones that hold its amount, and its qty when given. Its score is 1 minus the edit distance from the name to the closest stretch of a candidate line, per character, so a dropped Thai tone mark costs a little. Items pass at 0.8, and some line must hold the total.
 
 ## Image
 
-`Dockerfile` builds `chatreejs/bill-please-ocr` on `python:3.13.18-slim`. It runs as uid 1000, and the build downloads and loads the models once. Jenkins builds it with `ci/Jenkinsfile`.
+`Dockerfile` builds `chatreejs/bill-please-ocr` on `python:3.13.18-slim`. It runs as uid 1000, and Jenkins builds it with `ci/Jenkinsfile`. A `python:3.12-slim` stage downloads the models from Hugging Face at pinned revisions and converts them with `scripts/convert_onnx.py`. The image runs them with `onnxruntime-gpu` 1.26, the last release for CUDA 12, because agent04's driver 570 has no CUDA 13. The build loads the models once on the CPU, since the build machine has no GPU. `src/receipt_ocr/engine.py` ports the PaddleX 3.7.2 pre- and post-processing step by step, so it reads the same text as PaddleOCR.

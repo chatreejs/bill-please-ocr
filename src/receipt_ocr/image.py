@@ -29,5 +29,5 @@ def decode_image(data: bytes, max_side: int) -> np.ndarray:
         # Downscale only. Upscaling a small photo adds no detail for the recognizer.
         image.thumbnail((max_side, max_side), Image.Resampling.LANCZOS)
 
-    # PaddleOCR expects OpenCV channel order
+    # The OCR models expect OpenCV channel order
     return np.ascontiguousarray(np.asarray(image)[:, :, ::-1])

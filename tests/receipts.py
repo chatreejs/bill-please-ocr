@@ -1,4 +1,4 @@
-"""Scores OCR lines against the answers in fixtures/receipts. Used by test_paddle.py.
+"""Scores OCR lines against the answers in fixtures/receipts. Used by test_models.py.
 
 Each receipt is an image (`<name>.jpg`, .png, .webp, .heic or .heif) next to `<name>.json`,
 the answer of the bill:
@@ -51,7 +51,12 @@ class ReceiptScore:
 
 
 def receipts() -> list[Path]:
-    return sorted(p for p in RECEIPTS.glob("*") if p.suffix.lower() in IMAGE_SUFFIXES)
+    # An image without its <name>.json answer is not a test case yet
+    return sorted(
+        p
+        for p in RECEIPTS.glob("*")
+        if p.suffix.lower() in IMAGE_SUFFIXES and p.with_suffix(".json").is_file()
+    )
 
 
 def load_answer(image: Path) -> dict:
