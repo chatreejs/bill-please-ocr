@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 
 from receipt_ocr.log import parse_log_level
 
-# Same list as SUPPORTED_IMAGE_TYPES in bill-please-mcp src/schemas/receipt.ts
+# Same list as SUPPORTED_IMAGE_TYPES in bill-please-api src/schemas/receipt.ts
 SUPPORTED_IMAGE_TYPES = frozenset({"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"})
 
 

@@ -17,7 +17,7 @@
 - [ ] `uv run pytest` passes
 - [ ] `uv run ruff check . && uv run ruff format --check .` passes
 - [ ] `uv run pytest -m models` passes (if OCR or line reconstruction changed)
-- [ ] The `/v1/ocr` response is unchanged, or bill-please-mcp is updated to match
+- [ ] The `/v1/ocr` response is unchanged, or bill-please-api is updated to match
 
 ## Note to reviewers
 

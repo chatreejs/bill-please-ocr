@@ -21,7 +21,7 @@ Thank you for taking the time to contribute to our project. Please take a moment
 
 To get started, look at the existing [**Issues**](https://github.com/chatreejs/bill-please-ocr/issues) or [**create a new issue**](https://github.com/chatreejs/bill-please-ocr/issues/new/choose)!
 
-This service only turns a receipt image into text rows. Issues about the receipt scan API or the MCP server belong in [bill-please-mcp](https://github.com/chatreejs/bill-please-mcp/issues), and issues about the web app (UI, bill calculation, translations) belong in [bill-please](https://github.com/chatreejs/bill-please/issues).
+This service only turns a receipt image into text rows. Issues about the receipt scan API belong in [bill-please-api](https://github.com/chatreejs/bill-please-api/issues), and issues about the web app (UI, bill calculation, translations) belong in [bill-please](https://github.com/chatreejs/bill-please/issues).
 
 ### Setup guidelines 🪜
 
@@ -98,8 +98,8 @@ Follow these steps to set up Bill Please OCR on your local machine
 
 ## Project Conventions 🧭
 
-- **Keep the `/v1/ocr` response stable.** [bill-please-mcp](https://github.com/chatreejs/bill-please-mcp) calls this service over HTTP. If the response has to change, change this service first and the mcp client second.
-- **Keep the supported image types in sync.** `SUPPORTED_IMAGE_TYPES` in `src/receipt_ocr/config.py` mirrors `src/schemas/receipt.ts` in bill-please-mcp.
+- **Keep the `/v1/ocr` response stable.** [bill-please-api](https://github.com/chatreejs/bill-please-api) calls this service over HTTP. If the response has to change, change this service first and the api client second.
+- **Keep the supported image types in sync.** `SUPPORTED_IMAGE_TYPES` in `src/receipt_ocr/config.py` mirrors `src/schemas/receipt.ts` in bill-please-api.
 - **Tests never load the models.** `create_app(config, load_engine)` takes an engine factory, so the app tests pass a `FakeEngine`. Only tests marked `models` use the real models. Add tests for any new behavior in `tests/`.
 - **Keep blocking work off the event loop.** Image decoding and OCR run in the threadpool so the probes keep answering, and the engine holds a lock around the ONNX Runtime sessions so one request at a time uses the GPU.
 - **Never log the image or the recognized text.** Receipts can hold names and card digits. Log sizes, counts, confidence and durations as fields with `extra={"fields": {...}}`.
@@ -183,6 +183,6 @@ We follow the [Conventional Commits](https://www.conventionalcommits.org) format
 
 ## Remarks ✅
 
-- If something is missing here, or you feel something is not well described, either create a PR, [raise an issue](https://github.com/chatreejs/bill-please-ocr/issues), or [do a code review of the person’s PR](https://www.freecodecamp.org/news/code-review-tips/) (ensure that your review conforms to the [Code of Conduct](https://github.com/chatreejs/bill-please-mcp/blob/main/CODE_OF_CONDUCT.md)).
+- If something is missing here, or you feel something is not well described, either create a PR, [raise an issue](https://github.com/chatreejs/bill-please-ocr/issues), or [do a code review of the person’s PR](https://www.freecodecamp.org/news/code-review-tips/) (ensure that your review conforms to the [Code of Conduct](https://github.com/chatreejs/bill-please-api/blob/main/CODE_OF_CONDUCT.md)).
 
 - By contributing, you agree that your contributions will be licensed under the [AGPL-3.0 License](./LICENSE).

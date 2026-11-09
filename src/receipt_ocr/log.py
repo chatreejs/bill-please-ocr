@@ -1,4 +1,4 @@
-"""JSON lines logging, with the same fields as bill-please-mcp src/logger.ts.
+"""JSON lines logging, with the same fields as bill-please-api src/logger.ts.
 
   {"time":"2026-10-30T14:03:12.345Z","level":"info","service":"bill-please-ocr",
    "logger":"ocr.engine","msg":"Loaded OCR models"}
@@ -21,7 +21,7 @@ LOG_LEVELS = ("TRACE", "DEBUG", "INFO", "WARN", "ERROR", "OFF")
 
 request_id: ContextVar[str | None] = ContextVar("request_id", default=None)
 
-# The level names bill-please-mcp writes
+# The level names bill-please-api writes
 _LEVEL_NAMES = {
     logging.DEBUG: "debug",
     logging.INFO: "info",

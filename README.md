@@ -1,6 +1,6 @@
 # bill-please-ocr
 
-OCR service for [bill-please-mcp](https://github.com/chatreejs/bill-please-mcp). It takes a receipt photo and returns the text as receipt rows, ready for the LLM step. It runs the [PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR) PP-OCRv5 models, `PP-OCRv5_mobile_det` for text detection and `th_PP-OCRv5_mobile_rec` for recognition, converted to ONNX and run on ONNX Runtime with CUDA. The Thai recognition model also reads English letters and digits. It runs only on an NVIDIA GPU.
+OCR service for [bill-please-api](https://github.com/chatreejs/bill-please-api). It takes a receipt photo and returns the text as receipt rows, ready for the LLM step. It runs the [PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR) PP-OCRv5 models, `PP-OCRv5_mobile_det` for text detection and `th_PP-OCRv5_mobile_rec` for recognition, converted to ONNX and run on ONNX Runtime with CUDA. The Thai recognition model also reads English letters and digits. It runs only on an NVIDIA GPU.
 
 ## Develop
 
@@ -60,8 +60,8 @@ The detector returns one box per text run, so "Pad Thai", "2" and "240.00" come 
 | Env | Default | Notes |
 | --- | --- | --- |
 | `PORT` | `8000` | |
-| `LOG_LEVEL` | `INFO` | `TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR` or `OFF`. Logs are JSON lines with the same fields as bill-please-mcp. |
-| `MAX_IMAGE_BYTES` | `5242880` | Same limit as bill-please-mcp |
+| `LOG_LEVEL` | `INFO` | `TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR` or `OFF`. Logs are JSON lines with the same fields as bill-please-api. |
+| `MAX_IMAGE_BYTES` | `5242880` | Same limit as bill-please-api |
 | `MAX_IMAGE_SIDE` | `1600` | The service scales larger images down and never scales smaller ones up. |
 | `OCR_DET_MODEL` | `PP-OCRv5_mobile_det` | `PP-OCRv5_server_det` (84 MB) took 5.1 s instead of 3.2 s on the synthetic receipt, with no better result. In the Docker image it is a build arg, because the build bakes the models in. |
 | `OCR_REC_MODEL` | `th_PP-OCRv5_mobile_rec` | A build arg in the Docker image, like `OCR_DET_MODEL` |

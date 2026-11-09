@@ -36,7 +36,7 @@ body:
     id: client
     attributes:
       label: Client
-      description: Which client did you use? (e.g. bill-please-mcp, curl)
+      description: Which client did you use? (e.g. bill-please-api, curl)
     validations:
       required: false
   - type: checkboxes
