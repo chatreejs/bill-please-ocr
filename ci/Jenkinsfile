@@ -9,7 +9,7 @@ pipeline {
     stage('Prepare Env') {
       steps {
         script {
-          // Version from pyproject.toml, read with grep/sed like the mcp pipeline reads package.json
+          // Version from pyproject.toml, read with grep/sed like the api pipeline reads package.json
           env.VERSION = sh(
             returnStdout: true,
             script: '''grep -m1 '^version' pyproject.toml | sed -E 's/version[[:space:]]*=[[:space:]]*"([^"]+)"/\\1/' '''
@@ -116,7 +116,7 @@ pipeline {
       }
     }
 
-    // The manifest repo bill-please-backend also deploys bill-please-mcp, which sets MCP_IMAGE_TAG
+    // The manifest repo bill-please-backend also deploys bill-please-api, which sets API_IMAGE_TAG
     stage('Deploy to Kubernetes') {
       steps {
         build job: "${DEPLOY_JOB}", parameters: [string(name: 'OCR_IMAGE_TAG', value: "${BUILD_VERSION}")]

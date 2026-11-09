@@ -2,7 +2,7 @@
 
 ## Introduction
 
-This document outlines the security policy for Bill Please OCR, the receipt OCR service behind [Bill Please MCP](https://github.com/chatreejs/bill-please-mcp) for the [Bill Please](https://bill-please.chatree.dev/) open source project. The policy is intended to provide guidelines and procedures for reporting, triaging, and addressing security vulnerabilities in the project.
+This document outlines the security policy for Bill Please OCR, the receipt OCR service behind [Bill Please API](https://github.com/chatreejs/bill-please-api) for the [Bill Please](https://bill-please.chatree.dev/) open source project. The policy is intended to provide guidelines and procedures for reporting, triaging, and addressing security vulnerabilities in the project.
 
 ## Scope
 
@@ -13,7 +13,7 @@ The security policy covers the codebase, Docker image and documentation of this 
 - Logging, which must never contain receipt images or recognized text.
 - The Docker image, including the ONNX models baked into it.
 
-Vulnerabilities in the receipt scan API or the MCP server should be reported according to the [Bill Please MCP security policy](https://github.com/chatreejs/bill-please-mcp/blob/main/SECURITY.md), and vulnerabilities in the Bill Please web app according to the [Bill Please security policy](https://github.com/chatreejs/bill-please/blob/main/SECURITY.md). Vulnerabilities in third-party dependencies (ONNX Runtime, OpenCV, FastAPI, Pillow, pi-heif) should be reported to their maintainers; let us know too if this project is affected.
+Vulnerabilities in the receipt scan API should be reported according to the [Bill Please API security policy](https://github.com/chatreejs/bill-please-api/blob/main/SECURITY.md), and vulnerabilities in the Bill Please web app according to the [Bill Please security policy](https://github.com/chatreejs/bill-please/blob/main/SECURITY.md). Vulnerabilities in third-party dependencies (ONNX Runtime, OpenCV, FastAPI, Pillow, pi-heif) should be reported to their maintainers; let us know too if this project is affected.
 
 ## Supported Versions
 
@@ -43,7 +43,7 @@ Bill Please OCR will aim to resolve critical vulnerabilities within 30 days and 
 
 If you host your own instance:
 
-- The service has **no authentication** and is meant to be called only by bill-please-mcp. Do not expose it publicly; restrict it to the mcp pods, for example with a Kubernetes NetworkPolicy.
+- The service has **no authentication** and is meant to be called only by bill-please-api. Do not expose it publicly; restrict it to the api pods, for example with a Kubernetes NetworkPolicy.
 - Keep `MAX_IMAGE_BYTES` and `MAX_IMAGE_SIDE` low. OCR runs one request at a time on a shared GPU, so large or many images can starve the service.
 - Run the container as a non-root user, as the published image does (uid 1000).
 - Keep `LOG_LEVEL` at `INFO` or above in production, and never add logging of images or recognized text: receipts can hold names and card digits.

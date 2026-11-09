@@ -1,7 +1,7 @@
 [project]
 name = "bill-please-ocr"
 version = "0.1.0"
-description = "Receipt OCR service for bill-please-mcp (PP-OCRv5 on ONNX Runtime GPU, Thai + English)"
+description = "Receipt OCR service for bill-please-api (PP-OCRv5 on ONNX Runtime GPU, Thai + English)"
 authors = [
     { name = "Chatree.js", email = "36321701+chatreejs@users.noreply.github.com" }
 ]
