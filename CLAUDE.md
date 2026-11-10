@@ -49,13 +49,22 @@ Key points:
 
 ## Conventions
 
-- Code work happens on `develop`. Commits follow Conventional Commits with a lowercase subject.
+- The repo uses GitHub flow: `main` is the only long-lived branch, and every change goes through a pull request. Commits follow Conventional Commits with a lowercase subject.
 - CI is Jenkins only, with no GitHub Actions workflows. The user never runs Docker locally.
 
 ## Deployment
 
-`Dockerfile` builds `chatreejs/bill-please-ocr` on `python:3.13.18-slim` and runs it as uid 1000. The Jenkins pipeline in `ci/Jenkinsfile` runs ruff and the tests with coverage, scans with SonarQube, builds, scans the image with Trivy and pushes. Its last stage triggers the gitops job `chatreejs/gitops/bill-please-backend-manifest-{dev,prod}` with `OCR_IMAGE_TAG`. That manifest repo (`../../gitlab.com/chatreedev-manifest/bill-please-backend`) deploys this service next to bill-please-api, and a NetworkPolicy admits only the api pods.
+`Dockerfile` builds `chatreejs/bill-please-ocr` on `python:3.13.18-slim` and runs it as uid 1000. `ci/Jenkinsfile` runs as a Jenkins Multibranch Pipeline, like bill-please-api, which builds `main` and each PR:
 
-- **Dev.** The Argo CD app `bill-please-backend-dev` auto-syncs the manifest repo, so a push to `develop` reaches dev once Jenkins has built the image. Dev runs at `LOG_LEVEL=DEBUG`, and Pillow stays at WARN so its EXIF records don't flood the logs. OCR runs on a GPU node, about 6.9 times faster than the cluster CPU (4 s for a small receipt and 11 s for a long one) with the same fixture scores. The manifest's `ocr.gpu.request` is 0, so the pod requests no `nvidia.com/gpu` and shares the card that llm-server holds. There is no prod Argo CD app yet.
+1. Prepare Env reads the version from pyproject.toml. A PR build is tagged `X.Y.Z-pr<PR number>.<build>`, and a `main` build `X.Y.Z-<short commit>`.
+2. Test runs ruff and the tests with coverage.
+3. On `main` only, SonarQube scans. Community Edition can't analyze PRs.
+4. It builds the image and scans it with Trivy. A PR build stops here, and Jenkins reports the result to the PR as a status check.
+5. On `main`, it pushes the image, triggers the gitops job `chatreejs/gitops/bill-please-backend-manifest-dev` with `OCR_IMAGE_TAG`, and posts to Discord that dev has it.
+6. Promote to production waits up to 7 days, without an executor, for someone to click Promote. It then triggers `chatreejs/gitops/bill-please-backend-manifest-prod` with the same tag.
+
+That manifest repo (`../../gitlab.com/chatreedev-manifest/bill-please-backend`) deploys this service next to bill-please-api, and a NetworkPolicy admits only the api pods.
+
+- **Dev.** The Argo CD app `bill-please-backend-dev` auto-syncs the manifest repo, so a merge to `main` reaches dev once Jenkins has built the image. Dev runs at `LOG_LEVEL=DEBUG`, and Pillow stays at WARN so its EXIF records don't flood the logs. OCR runs on a GPU node, about 6.9 times faster than the cluster CPU (4 s for a small receipt and 11 s for a long one) with the same fixture scores. The manifest's `ocr.gpu.request` is 0, so the pod requests no `nvidia.com/gpu` and shares the card that llm-server holds. There is no prod Argo CD app yet.
 - **Shutdown.** The pod sleeps 5 s in `preStop` so the Service stops routing to it, then uvicorn finishes in-flight OCR within `terminationGracePeriodSeconds: 30`. The api side stops waiting after 20 s.
 - **Static analysis.** SonarQube, like bill-please-api: the Test stage writes `coverage.xml` with pytest-cov, and the Static Code Scan stage runs `sonar-scanner` with `sonar-project.properties` (project key `chatreejs_bill-please-ocr`) on the `SonarQube Server` Jenkins connection. There is no CodeQL.
