@@ -46,10 +46,10 @@ Follow these steps to set up Bill Please OCR on your local machine
    uv sync
    ```
 
-5. Create your branch from `develop`
+5. Create your branch from `main`
 
    ```sh
-   git checkout develop
+   git checkout main
    git checkout -b <your_branch_name>
    ```
 
@@ -90,7 +90,7 @@ Follow these steps to set up Bill Please OCR on your local machine
     git push origin "<your_branch_name>"
     ```
 
-11. Create a [PULL REQUEST](https://github.com/chatreejs/bill-please-ocr/compare) against `develop` 💣
+11. Create a [PULL REQUEST](https://github.com/chatreejs/bill-please-ocr/compare) against `main` 💣
 
     > Click _compare across forks_ if you don't see your branch
 
@@ -177,7 +177,7 @@ We follow the [Conventional Commits](https://www.conventionalcommits.org) format
 5. Do not re-open a pull request that a reviewer has closed.
    - Make sure to tick the "Allow edits from maintainers" box. This allows us to directly make minor edits / refactors and saves a lot of time.
      > **Note**
-     > If your pull request has merge conflicts with the `develop` branch (GitHub checks for this automatically and notifies you), you are responsible for resolving them. You can do this by merging the `develop` branch into your branch (`git pull upstream develop`), and then pushing the updated branch to your fork (`git push`). If you need more tips, check out [Resolving a merge conflict on GitHub](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/addressing-merge-conflicts/resolving-a-merge-conflict-on-github).
+     > If your pull request has merge conflicts with the `main` branch (GitHub checks for this automatically and notifies you), you are responsible for resolving them. You can do this by merging the `main` branch into your branch (`git pull upstream main`), and then pushing the updated branch to your fork (`git push`). If you need more tips, check out [Resolving a merge conflict on GitHub](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/addressing-merge-conflicts/resolving-a-merge-conflict-on-github).
 
 ---
 
