@@ -60,7 +60,7 @@ Key points:
 2. Test runs ruff and the tests with coverage.
 3. On `main` only, SonarQube scans. Community Edition can't analyze PRs.
 4. It builds the image and scans it with Trivy. A PR build stops here, and Jenkins reports the result to the PR as a status check.
-5. On `main`, it pushes the image, triggers the gitops job `chatreejs/gitops/bill-please-backend-manifest-dev` with `OCR_IMAGE_TAG`, and posts to Discord that dev has it.
+5. On `main`, it pushes the image, triggers the gitops job `chatreejs/gitops/bill-please-backend-manifest-dev` with `OCR_IMAGE_TAG`, and posts to Discord that dev has it. Discord messages use the Jenkins Secret text credential `discord-webhook-url`, the full webhook URL.
 6. Promote to production waits up to 7 days, without an executor, for someone to click Promote. It then triggers `chatreejs/gitops/bill-please-backend-manifest-prod` with the same tag.
 
 That manifest repo (`../../gitlab.com/chatreedev-manifest/bill-please-backend`) deploys this service next to bill-please-api, and a NetworkPolicy admits only the api pods.
