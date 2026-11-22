@@ -73,6 +73,8 @@ The detector returns one box per text run, so "Pad Thai", "2" and "240.00" come 
 
 The service never logs the image or the recognized text, because receipts can hold names and card digits. Each OCR request logs the image size, word and line counts, the mean confidence and the duration.
 
+When the OpenTelemetry Operator injects the Python SDK, a record written during a traced request also has `traceId` and `spanId`. A derived field on Grafana's Loki datasource can turn `traceId` into a link to the trace in Tempo.
+
 ## Fixtures
 
 Put real receipts in `tests/fixtures/receipts`: an image `<name>.jpg` (or .png, .webp, .heic, .heif) and the answer of the bill in `<name>.json`, as `{"items": [{"name": ..., "qty": ..., "amount": ...}], "total": ...}`. `.gitignore` keeps the folder out of git, because receipts hold names and card digits.
