@@ -8,6 +8,7 @@ import time
 
 import pytest
 from fastapi.testclient import TestClient
+from opentelemetry import trace
 from PIL import Image
 
 from receipt_ocr.app import _access_level, create_app
@@ -162,6 +163,23 @@ def test_json_log_request_id_and_error():
     assert entry["error"]["message"] == "outer"
     assert entry["error"]["cause"]["type"] == "KeyError"
     assert "Traceback" in entry["error"]["stack"]
+
+
+def test_json_log_trace_ids_inside_a_span():
+    context = trace.SpanContext(
+        trace_id=0x0AF7651916CD43DD8448EB211C80319C,
+        span_id=0xB7AD6B7169203331,
+        is_remote=False,
+        trace_flags=trace.TraceFlags(1),
+    )
+    record = logging.LogRecord("ocr.route", logging.INFO, __file__, 1, "in span", (), None)
+    with trace.use_span(trace.NonRecordingSpan(context)):
+        inside = json.loads(JsonFormatter().format(record))
+    outside = json.loads(JsonFormatter().format(record))
+    assert inside["traceId"] == "0af7651916cd43dd8448eb211c80319c"
+    assert inside["spanId"] == "b7ad6b7169203331"
+    assert "traceId" not in outside
+    assert "spanId" not in outside
 
 
 def test_pillow_stays_quiet_at_debug():

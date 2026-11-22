@@ -5,7 +5,10 @@
 
 Each record is one line. The example wraps only to fit here.
 
-Records written inside a request carry `requestId`. Pass structured values with `extra={"fields": {...}}`,
+Records written inside a request carry `requestId`. Records written inside an OpenTelemetry span
+also carry `traceId` and `spanId`. Grafana uses `traceId` to link a log line in Loki to its trace in
+Tempo. In the cluster, the OpenTelemetry Operator injects the SDK. Without the SDK, the span is never
+valid and the records have no ids. Pass structured values with `extra={"fields": {...}}`,
 and an exception becomes the `error` field.
 """
 
@@ -15,6 +18,8 @@ import sys
 import traceback
 from contextvars import ContextVar
 from datetime import UTC, datetime
+
+from opentelemetry import trace
 
 APP_NAME = "bill-please-ocr"
 LOG_LEVELS = ("TRACE", "DEBUG", "INFO", "WARN", "ERROR", "OFF")
@@ -68,6 +73,10 @@ class JsonFormatter(logging.Formatter):
         rid = request_id.get()
         if rid:
             entry["requestId"] = rid
+        span = trace.get_current_span().get_span_context()
+        if span.is_valid:
+            entry["traceId"] = format(span.trace_id, "032x")
+            entry["spanId"] = format(span.span_id, "016x")
         entry["msg"] = record.getMessage()
         fields = getattr(record, "fields", None)
         if isinstance(fields, dict):
