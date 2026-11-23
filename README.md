@@ -45,7 +45,7 @@ Response of `POST /v1/ocr`:
 
 `box` is `[x0, y0, x1, y1]` in pixels of the decoded image. The service rotates the image by its EXIF orientation tag and scales it down to at most `MAX_IMAGE_SIDE`. `width` and `height` are the size after that.
 
-Errors return `{"error": "..."}` with status 413 (too large), 415 (unsupported type), 422 (missing field or undecodable image) or 503 (models still loading). The service reuses an incoming `X-Request-Id` in its logs and sends it back in the response.
+Errors return `{"error": "..."}` with status 413 (too large), 415 (unsupported type), 422 (missing field or undecodable image) or 503 (models still loading).
 
 ## Line reconstruction
 

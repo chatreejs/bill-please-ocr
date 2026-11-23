@@ -5,26 +5,24 @@
 
 Each record is one line. The example wraps only to fit here.
 
-Records written inside a request carry `requestId`. Records written inside an OpenTelemetry span
-also carry `traceId` and `spanId`. Grafana uses `traceId` to link a log line in Loki to its trace in
-Tempo. In the cluster, the OpenTelemetry Operator injects the SDK. Without the SDK, the span is never
-valid and the records have no ids. Pass structured values with `extra={"fields": {...}}`,
-and an exception becomes the `error` field.
+Records written inside an OpenTelemetry span carry `traceId` and `spanId`. bill-please-api sends
+the trace in the `traceparent` header, so a scan has the same `traceId` in both services' logs.
+Grafana uses `traceId` to link a log line in Loki to its trace in Tempo. In the cluster, the
+OpenTelemetry Operator injects the SDK. Without the SDK, the span is never valid and the records
+have no ids. Pass structured values with `extra={"fields": {...}}`, and an exception becomes the
+`error` field.
 """
 
 import json
 import logging
 import sys
 import traceback
-from contextvars import ContextVar
 from datetime import UTC, datetime
 
 from opentelemetry import trace
 
 APP_NAME = "bill-please-ocr"
 LOG_LEVELS = ("TRACE", "DEBUG", "INFO", "WARN", "ERROR", "OFF")
-
-request_id: ContextVar[str | None] = ContextVar("request_id", default=None)
 
 # The level names bill-please-api writes
 _LEVEL_NAMES = {
@@ -70,9 +68,6 @@ class JsonFormatter(logging.Formatter):
             "service": APP_NAME,
             "logger": record.name,
         }
-        rid = request_id.get()
-        if rid:
-            entry["requestId"] = rid
         span = trace.get_current_span().get_span_context()
         if span.is_valid:
             entry["traceId"] = format(span.trace_id, "032x")
