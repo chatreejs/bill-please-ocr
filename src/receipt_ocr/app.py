@@ -1,7 +1,6 @@
 import asyncio
 import logging
 import re
-import secrets
 import time
 from collections.abc import Callable
 from contextlib import asynccontextmanager
@@ -15,12 +14,11 @@ from receipt_ocr.config import Config
 from receipt_ocr.engine import OcrEngine
 from receipt_ocr.image import InvalidImageError, decode_image
 from receipt_ocr.lines import Line, build_lines
-from receipt_ocr.log import get_logger, request_id
+from receipt_ocr.log import get_logger
 
 access_log = get_logger("http.access")
 log = get_logger("ocr.route")
 
-REQUEST_ID_PATTERN = re.compile(r"^[\w-]{1,64}$")
 # Kubernetes probes hit /healthz and /readyz every few seconds
 PROBE_USER_AGENT = re.compile(r"^kube-probe/", re.IGNORECASE)
 PROBE_PATHS = ("/healthz", "/readyz")
@@ -28,11 +26,6 @@ PROBE_PATHS = ("/healthz", "/readyz")
 
 def _error(status: int, message: str) -> JSONResponse:
     return JSONResponse({"error": message}, status_code=status)
-
-
-def _request_id(request: Request) -> str:
-    incoming = request.headers.get("x-request-id", "")
-    return incoming if REQUEST_ID_PATTERN.match(incoming) else secrets.token_hex(4)
 
 
 def _report_load_failure(task: asyncio.Task) -> None:
@@ -143,20 +136,14 @@ def create_app(config: Config, load_engine: Callable[[], OcrEngine]) -> FastAPI:
 
     @app.middleware("http")
     async def request_logger(request: Request, call_next):
-        rid = _request_id(request)
-        token = request_id.set(rid)
         started = time.perf_counter()
         try:
-            try:
-                response = await call_next(request)
-            except Exception:
-                log.exception("Unhandled error on %s %s", request.method, request.url.path)
-                response = _error(500, "Internal server error")
-            response.headers["x-request-id"] = rid
-            _log_access(request, response.status_code, round((time.perf_counter() - started) * 1000))
-            return response
-        finally:
-            request_id.reset(token)
+            response = await call_next(request)
+        except Exception:
+            log.exception("Unhandled error on %s %s", request.method, request.url.path)
+            response = _error(500, "Internal server error")
+        _log_access(request, response.status_code, round((time.perf_counter() - started) * 1000))
+        return response
 
     @app.get("/healthz")
     async def healthz():

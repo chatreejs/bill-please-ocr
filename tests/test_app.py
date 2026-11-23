@@ -14,7 +14,7 @@ from PIL import Image
 from receipt_ocr.app import _access_level, create_app
 from receipt_ocr.config import Config
 from receipt_ocr.lines import Word
-from receipt_ocr.log import JsonFormatter, configure_logging, request_id
+from receipt_ocr.log import JsonFormatter, configure_logging
 
 WORDS = [
     Word("Pad Thai", 0.98, (20, 100, 140, 130)),
@@ -89,12 +89,6 @@ def test_missing_field_is_422(client):
     assert client.post("/v1/ocr").status_code == 422
 
 
-def test_request_id_is_reused_or_generated(client):
-    assert client.get("/healthz", headers={"x-request-id": "abc-123"}).headers["x-request-id"] == "abc-123"
-    generated = client.get("/healthz", headers={"x-request-id": "bad id!"}).headers["x-request-id"]
-    assert len(generated) == 8 and generated != "bad id!"
-
-
 def test_not_ready_while_models_load():
     release = threading.Event()
 
@@ -148,17 +142,12 @@ def test_json_log_format():
     }
 
 
-def test_json_log_request_id_and_error():
-    token = request_id.set("abcd1234")
+def test_json_log_error():
     try:
-        try:
-            raise ValueError("outer") from KeyError("inner")
-        except ValueError:
-            record = logging.LogRecord("ocr.route", logging.ERROR, __file__, 1, "failed", (), sys.exc_info())
-        entry = json.loads(JsonFormatter().format(record))
-    finally:
-        request_id.reset(token)
-    assert entry["requestId"] == "abcd1234"
+        raise ValueError("outer") from KeyError("inner")
+    except ValueError:
+        record = logging.LogRecord("ocr.route", logging.ERROR, __file__, 1, "failed", (), sys.exc_info())
+    entry = json.loads(JsonFormatter().format(record))
     assert entry["error"]["type"] == "ValueError"
     assert entry["error"]["message"] == "outer"
     assert entry["error"]["cause"]["type"] == "KeyError"
